@@ -3,6 +3,7 @@
 import Benefits from "@/components/home/Benefits";
 import Hero from "@/components/home/Hero";
 import StatsHero from "@/components/home/StatsHero";
+import Testimonials from "@/components/home/Testimonials";
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
       <StatsHero></StatsHero>
       {/* Benefits */}
       <Benefits></Benefits>
+      <Testimonials></Testimonials>
       <h1>Home Page</h1>
     </div>
   );
