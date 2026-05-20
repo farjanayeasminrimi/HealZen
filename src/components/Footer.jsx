@@ -81,14 +81,14 @@ export default function Footer() {
     <footer className="bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-900 transition-colors duration-300">
       {/* Upper Footer section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-12 items-start">
           {/* Brand Column */}
           <div className="flex flex-col gap-4">
             <Link href="/" className="flex items-center gap-2 group">
               <div className="bg-brand-600 text-white p-2 rounded-xl group-hover:scale-105 transition-transform duration-300 shadow-md">
                 <HeartPulse className="h-6 w-6" />
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-800 dark:text-white">
+              <span className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">
                 Heal<span className="text-brand-600 dark:text-brand-500">Zen</span>
               </span>
             </Link>
