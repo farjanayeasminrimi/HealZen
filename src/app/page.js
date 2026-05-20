@@ -1,7 +1,9 @@
 "use client";
 
 import Benefits from "@/components/home/Benefits";
+import CTA from "@/components/home/CTA";
 import Hero from "@/components/home/Hero";
+import Specialties from "@/components/home/Specialties";
 import StatsHero from "@/components/home/StatsHero";
 import Testimonials from "@/components/home/Testimonials";
 
@@ -14,8 +16,13 @@ export default function Home() {
       <StatsHero></StatsHero>
       {/* Benefits */}
       <Benefits></Benefits>
+      {/* Specialties */}
+      <Specialties></Specialties>
+      {/* Top rated Doctor's */}
+      {/* Testimonial */}
       <Testimonials></Testimonials>
-      <h1>Home Page</h1>
+      {/* Call to action btn */}
+      <CTA></CTA>
     </div>
   );
 }
