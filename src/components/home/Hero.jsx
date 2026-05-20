@@ -41,7 +41,7 @@ const Hero = () => {
     const timer = setInterval(() => {
       // Modulo operator ensures the index wraps back to 0 after the last slide
       setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
+    }, 6000);
 
     // Clean up the timer when the component unmounts to prevent memory leaks
     return () => clearInterval(timer);

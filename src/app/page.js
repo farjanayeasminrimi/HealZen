@@ -1,5 +1,6 @@
 "use client";
 
+import Benefits from "@/components/home/Benefits";
 import Hero from "@/components/home/Hero";
 import StatsHero from "@/components/home/StatsHero";
 
@@ -10,6 +11,8 @@ export default function Home() {
       <Hero></Hero>
       {/* Hero Stats */}
       <StatsHero></StatsHero>
+      {/* Benefits */}
+      <Benefits></Benefits>
       <h1>Home Page</h1>
     </div>
   );
