@@ -6,6 +6,7 @@ import Hero from "@/components/home/Hero";
 import Specialties from "@/components/home/Specialties";
 import StatsHero from "@/components/home/StatsHero";
 import Testimonials from "@/components/home/Testimonials";
+import TopDoctors from "@/components/home/TopDoctors";
 
 export default function Home() {
   return (
@@ -16,9 +17,10 @@ export default function Home() {
       <StatsHero></StatsHero>
       {/* Benefits */}
       <Benefits></Benefits>
+      {/* Top rated Doctor's */}
+      <TopDoctors></TopDoctors>
       {/* Specialties */}
       <Specialties></Specialties>
-      {/* Top rated Doctor's */}
       {/* Testimonial */}
       <Testimonials></Testimonials>
       {/* Call to action btn */}
@@ -26,3 +28,4 @@ export default function Home() {
     </div>
   );
 }
+

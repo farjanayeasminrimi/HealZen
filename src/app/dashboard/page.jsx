@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock, Trash2, User, Edit2, X as CloseIcon, Phone, Mail } from "lucide-react";
+import { Calendar, Clock, Trash2, User, Edit2, X as CloseIcon, Phone, Mail, Lock } from "lucide-react";
 
 /**
  * PATIENT PORTAL DASHBOARD PAGE
@@ -58,6 +58,19 @@ export default function Dashboard() {
   const [confirmInput, setConfirmInput] = useState("");
   const [confirmError, setConfirmError] = useState("");
 
+  // Edit Appointment Modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [apptToEdit, setApptToEdit] = useState(null);
+  const [formName, setFormName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formDate, setFormDate] = useState("");
+  const [formTime, setFormTime] = useState("");
+  const [formReason, setFormReason] = useState("");
+
+  // Toast states
+  const [toastMessage, setToastMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
+
   // Core application states
   const [appointments, setAppointments] = useState([]);
 
@@ -79,6 +92,16 @@ export default function Dashboard() {
     const userEmail = currentUser?.email;
 
     const loadAppointments = async () => {
+      // Get cancelled appointments list from localStorage
+      const cancelledIds = (() => {
+        try {
+          const c = localStorage.getItem("cancelledAppointments");
+          return c ? JSON.parse(c) : [];
+        } catch (e) {
+          return [];
+        }
+      })();
+
       // Try API endpoints that may exist on user's backend
       const endpoints = [
         `${backendUrl}/appointments${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ""}`,
@@ -94,22 +117,24 @@ export default function Dashboard() {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             // Normalize minimal expected fields if needed
-            const normalized = data.map((d) => ({
-              bookingId: d.bookingId || d.id || d._id || (d.booking && d.booking.id),
-              doctorId: d.doctorId || d.doctor?._id || d.doctorId,
-              doctorName: d.doctorName || d.doctor?.name || d.doctorName,
-              doctorSpecialty: d.doctorSpecialty || d.doctor?.specialty || d.specialty,
-              doctorImage: d.doctorImage || d.doctor?.image || d.image || d.doctorImage,
-              doctorHospital: d.doctorHospital || d.doctor?.hospital || d.hospital,
-              date: d.date || d.appointmentDate || d.slotDate,
-              timeSlot: d.timeSlot || d.slot || d.time,
-              patientName: d.patientName || d.user?.name || currentUser.name,
-              patientEmail: d.patientEmail || d.user?.email || currentUser.email,
-              patientPhone: d.patientPhone || d.user?.phone || currentUser.phone,
-              patientReason: d.patientReason || d.reason || d.note || "",
-              status: d.status || (new Date(d.date) >= new Date() ? "Upcoming" : "Completed"),
-              raw: d,
-            }));
+            const normalized = data
+              .map((d) => ({
+                bookingId: d.bookingId || d.id || d._id || (d.booking && d.booking.id),
+                doctorId: d.doctorId || d.doctor?._id || d.doctorId,
+                doctorName: d.doctorName || d.doctor?.name || d.doctorName,
+                doctorSpecialty: d.doctorSpecialty || d.doctor?.specialty || d.specialty,
+                doctorImage: d.doctorImage || d.doctor?.image || d.image || d.doctorImage,
+                doctorHospital: d.doctorHospital || d.doctor?.hospital || d.hospital,
+                date: d.date || d.appointmentDate || d.slotDate,
+                timeSlot: d.timeSlot || d.slot || d.time,
+                patientName: d.patientName || d.user?.name || currentUser.name,
+                patientEmail: d.patientEmail || d.user?.email || currentUser.email,
+                patientPhone: d.patientPhone || d.user?.phone || currentUser.phone,
+                patientReason: d.patientReason || d.reason || d.note || "",
+                status: d.status || (new Date(d.date) >= new Date() ? "Upcoming" : "Completed"),
+                raw: d,
+              }))
+              .filter((appt) => appt && appt.bookingId && !cancelledIds.includes(appt.bookingId));
 
             // Merge backend data with locally saved appointments
             const savedLocal = (() => {
@@ -124,7 +149,12 @@ export default function Dashboard() {
             const merged = [...normalized];
             if (Array.isArray(savedLocal)) {
               savedLocal.forEach((localAppt) => {
-                if (localAppt && localAppt.bookingId && !merged.some((m) => m.bookingId === localAppt.bookingId)) {
+                if (
+                  localAppt &&
+                  localAppt.bookingId &&
+                  !cancelledIds.includes(localAppt.bookingId) &&
+                  !merged.some((m) => m.bookingId === localAppt.bookingId)
+                ) {
                   merged.push(localAppt);
                 }
               });
@@ -145,7 +175,10 @@ export default function Dashboard() {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setAppointments(parsed);
+            const filtered = parsed.filter(
+              (appt) => appt && appt.bookingId && !cancelledIds.includes(appt.bookingId)
+            );
+            setAppointments(filtered);
             return;
           }
         } catch (e) {}
@@ -249,6 +282,17 @@ export default function Dashboard() {
         }
       }
 
+      // Add to cancelledAppointments blacklist in localStorage
+      try {
+        const cancelled = JSON.parse(localStorage.getItem("cancelledAppointments") || "[]");
+        if (!cancelled.includes(apptToCancel.bookingId)) {
+          cancelled.push(apptToCancel.bookingId);
+          localStorage.setItem("cancelledAppointments", JSON.stringify(cancelled));
+        }
+      } catch (e) {
+        console.error("Failed to update cancelledAppointments blacklist:", e);
+      }
+
       const updated = appointments.filter((appt) => appt.bookingId !== apptToCancel.bookingId);
       // Persist locally regardless of remote outcome to keep UI in sync
       localStorage.setItem("appointments", JSON.stringify(updated));
@@ -258,6 +302,92 @@ export default function Dashboard() {
     } else {
       setConfirmError(`"${confirmInput}" does not match any word in "${apptToCancel.doctorName}".`);
     }
+  };
+
+  // ----------------------------------------------------
+  // ACTION HANDLER: Trigger toast notification
+  // ----------------------------------------------------
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+    }, 4000);
+  };
+
+  // ----------------------------------------------------
+  // ACTION HANDLER: Open Edit Appointment Modal
+  // ----------------------------------------------------
+  const handleEditAppointment = (appt) => {
+    setApptToEdit(appt);
+    setFormName(appt.patientName || "");
+    setFormPhone(appt.patientPhone || "");
+    setFormDate(appt.date || "");
+    setFormTime(appt.timeSlot || "");
+    setFormReason(appt.patientReason || "");
+    setIsEditModalOpen(true);
+  };
+
+  // ----------------------------------------------------
+  // ACTION HANDLER: Save Edited Appointment
+  // ----------------------------------------------------
+  const handleSaveAppointment = async (e) => {
+    e.preventDefault();
+    if (!apptToEdit) return;
+
+    const backendUrl =
+      process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, "") ||
+      "https://heal-zen-backend.vercel.app";
+
+    const candidateId = apptToEdit.raw?.id || apptToEdit.raw?._id || apptToEdit.bookingId;
+
+    if (candidateId) {
+      const updateEndpoints = [
+        `${backendUrl}/appointments/${candidateId}`,
+        `${backendUrl}/bookings/${candidateId}`,
+      ];
+
+      for (const url of updateEndpoints) {
+        try {
+          const res = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...apptToEdit.raw,
+              date: formDate,
+              timeSlot: formTime,
+              patientName: formName,
+              patientPhone: formPhone,
+              patientReason: formReason,
+            }),
+          });
+          if (res.ok) break;
+        } catch (err) {
+          // ignore and try next
+        }
+      }
+    }
+
+    const updated = appointments.map((appt) => {
+      if (appt.bookingId === apptToEdit.bookingId) {
+        return {
+          ...appt,
+          date: formDate,
+          timeSlot: formTime,
+          patientName: formName,
+          patientPhone: formPhone,
+          patientReason: formReason,
+        };
+      }
+      return appt;
+    });
+
+    setAppointments(updated);
+    localStorage.setItem("appointments", JSON.stringify(updated));
+
+    setIsEditModalOpen(false);
+    setApptToEdit(null);
+    triggerToast("Appointment updated successfully!");
   };
 
   // ----------------------------------------------------
@@ -462,16 +592,22 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Cancellation operations */}
-                      <div className="px-5 py-4 sm:py-0 bg-slate-50 dark:bg-slate-950/60 sm:bg-transparent border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800/80 flex items-center justify-between sm:justify-center p-4 sm:px-6">
+                      {/* Cancellation & Update operations */}
+                      <div className="px-5 py-4 sm:py-0 bg-slate-50 dark:bg-slate-950/60 sm:bg-transparent border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800/80 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-3 p-4 sm:px-6 min-w-[180px]">
                         <span className="px-2.5 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-500 text-[10px] font-bold rounded-lg uppercase tracking-wider w-fit sm:hidden">
                           {appt.status}
                         </span>
                         <button
-                          onClick={() => handleCancelAppointment(appt.bookingId)}
-                          className="px-4 py-2.5 bg-red-50 hover:bg-red-500 dark:bg-red-950/20 dark:hover:bg-red-600 text-red-500 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors duration-300 shadow-sm cursor-pointer border border-transparent"
+                          onClick={() => handleEditAppointment(appt)}
+                          className="w-full px-4 py-2.5 bg-brand-50 hover:bg-brand-600 dark:bg-brand-950/20 dark:hover:bg-brand-600 text-brand-600 hover:text-white dark:text-brand-400 dark:hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors duration-300 shadow-sm cursor-pointer border border-transparent"
                         >
-                          <Trash2 className="w-4 h-4" /> Cancel Appointment
+                          <Edit2 className="w-3.5 h-3.5" /> Update
+                        </button>
+                        <button
+                          onClick={() => handleCancelAppointment(appt.bookingId)}
+                          className="w-full px-4 py-2.5 bg-red-50 hover:bg-red-500 dark:bg-red-950/20 dark:hover:bg-red-600 text-red-500 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors duration-300 shadow-sm cursor-pointer border border-transparent"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Cancel
                         </button>
                       </div>
                     </div>
@@ -707,6 +843,217 @@ export default function Dashboard() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* 6. EDIT APPOINTMENT MODAL */}
+      {isEditModalOpen && apptToEdit && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300 animate-fade-in">
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-5 transform scale-100 transition-all duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-150 dark:border-slate-800 pb-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-850 dark:text-white uppercase tracking-wider text-left">
+                  Update Appointment Details
+                </h3>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5 text-left">
+                  Review and update your clinical booking details
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setApptToEdit(null);
+                }}
+                className="p-1.5 bg-slate-50 dark:bg-slate-950 text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+              >
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveAppointment} className="flex flex-col gap-4 text-left max-h-[70vh] overflow-y-auto pr-1">
+              {/* Doctor Details (Read-only section) */}
+              <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/80 p-4 rounded-2xl flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <Lock className="w-3.5 h-3.5" /> Doctor & Hospital Details (Read-only)
+                </div>
+                <div className="flex gap-3 mt-1 items-center">
+                  <div className="relative w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden shrink-0 border border-slate-100 dark:border-slate-850">
+                    <Image
+                      src={apptToEdit.doctorImage}
+                      alt={apptToEdit.doctorName}
+                      fill
+                      className="object-cover object-top"
+                    />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-extrabold text-slate-800 dark:text-white truncate">
+                      {apptToEdit.doctorName}
+                    </span>
+                    <span className="text-[10px] text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">
+                      {apptToEdit.doctorSpecialty}
+                    </span>
+                    <span className="text-[10px] text-slate-400 truncate">
+                      {apptToEdit.doctorHospital}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Patient Email Address (Read-only field) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Email Address (Read-only)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                    <Mail className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="email"
+                    readOnly
+                    value={apptToEdit.patientEmail}
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-100 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/65 rounded-xl text-xs font-semibold text-slate-405 dark:text-slate-450 cursor-not-allowed outline-none select-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Patient Name */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="formName" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Patient Name
+                  </label>
+                  <input
+                    id="formName"
+                    type="text"
+                    required
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="Enter patient name..."
+                    className="w-full px-4.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-brand-500"
+                  />
+                </div>
+
+                {/* Patient Phone */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="formPhone" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Contact Phone
+                  </label>
+                  <input
+                    id="formPhone"
+                    type="text"
+                    required
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    placeholder="Enter phone number..."
+                    className="w-full px-4.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Appointment Date */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="formDate" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Appointment Date
+                  </label>
+                  <input
+                    id="formDate"
+                    type="date"
+                    required
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                    className="w-full px-4.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-brand-500"
+                  />
+                </div>
+
+                {/* Time Slot Selection */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="formTime" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Time Slot
+                  </label>
+                  <select
+                    id="formTime"
+                    required
+                    value={formTime}
+                    onChange={(e) => setFormTime(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-brand-500 cursor-pointer"
+                  >
+                    {/* Make sure the current value is always an option */}
+                    {![
+                      "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+                      "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM"
+                    ].includes(formTime) && formTime && (
+                      <option value={formTime}>{formTime}</option>
+                    )}
+                    <option value="08:00 AM">08:00 AM</option>
+                    <option value="08:30 AM">08:30 AM</option>
+                    <option value="09:00 AM">09:00 AM</option>
+                    <option value="09:30 AM">09:30 AM</option>
+                    <option value="10:00 AM">10:00 AM</option>
+                    <option value="10:30 AM">10:30 AM</option>
+                    <option value="11:00 AM">11:00 AM</option>
+                    <option value="11:30 AM">11:30 AM</option>
+                    <option value="01:00 PM">01:00 PM</option>
+                    <option value="01:30 PM">01:30 PM</option>
+                    <option value="02:00 PM">02:00 PM</option>
+                    <option value="02:30 PM">02:30 PM</option>
+                    <option value="03:00 PM">03:00 PM</option>
+                    <option value="03:30 PM">03:30 PM</option>
+                    <option value="04:00 PM">04:00 PM</option>
+                    <option value="04:30 PM">04:30 PM</option>
+                    <option value="05:00 PM">05:00 PM</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Reason for Appointment */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="formReason" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Reason for Consultation / Symptoms
+                </label>
+                <textarea
+                  id="formReason"
+                  rows={3}
+                  value={formReason}
+                  onChange={(e) => setFormReason(e.target.value)}
+                  placeholder="E.g. Routine general checkup, high blood pressure symptoms, etc..."
+                  className="w-full px-4.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-brand-500 resize-none"
+                />
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setApptToEdit(null);
+                  }}
+                  className="grow py-3 bg-slate-100 hover:bg-slate-205 dark:bg-slate-850 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-350 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="grow py-3 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 active:scale-95 transition-all duration-200 cursor-pointer text-center"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. TOAST NOTIFICATION ALERTS */}
+      {showToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-teal-600 dark:bg-teal-500 text-white font-extrabold text-xs px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in border border-teal-500/10 backdrop-blur-md">
+          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

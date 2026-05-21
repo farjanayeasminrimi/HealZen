@@ -17,6 +17,9 @@ export const metadata = {
   title: "HealZen | Digital Doctor Appointment Booking System",
   description:
     "Browse, compare and book appointments with leading certified doctors instantly. HealZen connects patients with top healthcare specialists for secure and seamless virtual or clinical medical care.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }) {
