@@ -1,7 +1,7 @@
 import React from "react";
 
 const Appointments = () => {
-  return <div className="text-5xl">Appointments</div>;
+  return <div>Appoinments</div>;
 };
 
 export default Appointments;

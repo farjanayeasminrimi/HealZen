@@ -104,7 +104,7 @@ const Navbar = () => {
 
             {/* Visual Login Button (Transparent/Outline fills on hover) */}
             <Link
-              href="#"
+              href="/login"
               className="px-4 py-2.5 bg-transparent text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-800 hover:bg-slate-700 hover:text-white hover:border-slate-700 dark:hover:bg-slate-200 dark:hover:text-slate-900 dark:hover:border-slate-200 rounded-xl text-sm font-bold transition-colors duration-300 shadow-sm"
             >
               Login
@@ -112,7 +112,7 @@ const Navbar = () => {
 
             {/* Visual Register Button (Solid color transitions on hover) */}
             <Link
-              href="#"
+              href="/register"
               className="px-4 py-2.5 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-bold transition-colors duration-300 shadow-sm"
             >
               Register
@@ -173,14 +173,14 @@ const Navbar = () => {
             {/* Mobile Visual Auth Buttons Panel */}
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center gap-3">
               <Link
-                href="#"
+                href="/login"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex-1 text-center px-4 py-3 bg-transparent text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-800 hover:bg-slate-700 hover:text-white hover:border-slate-700 dark:hover:bg-slate-200 dark:hover:text-slate-900 dark:hover:border-slate-200 rounded-xl text-sm font-extrabold transition-colors duration-300 shadow-sm"
               >
                 Login
               </Link>
               <Link
-                href="#"
+                href="/register"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex-1 text-center px-4 py-3 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-extrabold transition-colors duration-300 shadow-sm"
               >
