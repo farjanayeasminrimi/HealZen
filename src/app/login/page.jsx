@@ -3,16 +3,28 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Mail, Lock, ArrowRight, HeartPulse } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { redirect } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [forgotMsg, setForgotMsg] = useState("");
 
-  const handleMockSubmit = (e) => {
+  const handleMockSubmit = async (e) => {
     e.preventDefault();
-    // Pure design/visual behavior - no backend/authentication logic
-    alert(`Login form submitted!\nEmail: ${email}\nPassword: ${password}`);
+    const formData = new FormData(e.target);
+    const loginData = Object.fromEntries(formData.entries());
+    console.log(loginData);
+
+    const { data, error } = await authClient.signIn.email({
+      email: loginData.email,
+      password: loginData.password,
+    });
+    console.log(data, error);
+    if (data.user) {
+      redirect("/");
+    }
   };
 
   return (
@@ -51,6 +63,8 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="email"
+                  name="email"
+                  defaultValue={""}
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -79,6 +93,8 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="password"
+                  name="password"
+                  defaultValue={""}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
