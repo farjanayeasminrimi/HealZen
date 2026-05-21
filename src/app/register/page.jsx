@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { User, Mail, Lock, Link as LinkIcon, ArrowRight, HeartPulse } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { redirect, useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -10,8 +12,25 @@ export default function RegisterPage() {
   const [photoUrl, setPhotoUrl] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleMockSubmit = (e) => {
+  // const router = useRouter();
+
+  const handleMockSubmit = async (e) => {
     e.preventDefault();
+    const formData = new FormData(e.target);
+    const registerData = Object.fromEntries(formData.entries());
+
+    const { data, error } = await authClient.signUp.email({
+      name: registerData.name, // required
+      email: registerData.email,
+      password: registerData.password,
+    });
+
+    if (data.user) {
+      authClient.signOut();
+      // router.push("/login");
+      redirect("/login");
+    }
+    console.log(data, error);
     // Pure design/visual behavior - no backend/authentication logic
   };
 
@@ -52,7 +71,9 @@ export default function RegisterPage() {
                 <input
                   type="text"
                   required
+                  name="name"
                   value={name}
+                  defaultValue={""}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-500 transition-colors duration-300 shadow-sm"
@@ -71,7 +92,9 @@ export default function RegisterPage() {
                 </div>
                 <input
                   type="email"
+                  name="email"
                   required
+                  defaultValue={""}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
@@ -91,7 +114,9 @@ export default function RegisterPage() {
                 </div>
                 <input
                   type="url"
+                  name="url"
                   value={photoUrl}
+                  defaultValue={""}
                   onChange={(e) => setPhotoUrl(e.target.value)}
                   placeholder="https://images.unsplash.com/photo-..."
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-500 transition-colors duration-300 shadow-sm"
@@ -111,6 +136,8 @@ export default function RegisterPage() {
                 <input
                   type="password"
                   required
+                  name="password"
+                  defaultValue={""}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
