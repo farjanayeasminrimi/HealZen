@@ -35,7 +35,25 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
   });
   const [isBooked, setIsBooked] = useState(false);
   const [errors, setErrors] = useState({});
-  const [bookingId] = useState(() => `HZ-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [bookingId, setBookingId] = useState("");
+
+  // Retrieve logged-in user to pre-fill the form
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem("loggedUser");
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        setFormData((prev) => ({
+          ...prev,
+          patientName: prev.patientName || u.name || "",
+          patientEmail: prev.patientEmail || u.email || "",
+          patientPhone: prev.patientPhone || u.phone || "",
+        }));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     if (initialDoctor) return;
@@ -119,11 +137,52 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleBookingSubmit = (e) => {
+  const handleBookingSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      setIsBooked(true);
+    if (!validateForm()) return;
+
+    const newBookingId = `HZ-${Math.floor(100000 + Math.random() * 900000)}`;
+    setBookingId(newBookingId);
+
+    const newAppointment = {
+      bookingId: newBookingId,
+      doctorId: doctor?._id || doctor?.id || null,
+      doctorName: doctor?.name || "Unknown Doctor",
+      doctorSpecialty: doctor?.specialty || "General Medicine",
+      doctorImage: doctor?.image || "",
+      doctorHospital: doctor?.hospital || "",
+      date: selectedDay,
+      timeSlot: selectedSlot,
+      patientName: formData.patientName,
+      patientEmail: formData.patientEmail,
+      patientPhone: formData.patientPhone,
+      patientReason: formData.notes || "",
+      status: "Upcoming",
+      raw: { doctor, selectedDay, selectedSlot, patientEmail: formData.patientEmail },
+    };
+
+    try {
+      const savedAppointments = JSON.parse(localStorage.getItem("appointments") || "[]");
+      const updatedAppointments = Array.isArray(savedAppointments)
+        ? [newAppointment, ...savedAppointments]
+        : [newAppointment];
+      localStorage.setItem("appointments", JSON.stringify(updatedAppointments));
+    } catch (error) {
+      console.error("Failed to save appointment to localStorage:", error);
     }
+
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://heal-zen-backend.vercel.app";
+    try {
+      await fetch(`${backendUrl}/appointments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newAppointment),
+      });
+    } catch (error) {
+      console.warn("Backend appointment save failed:", error);
+    }
+
+    setIsBooked(true);
   };
 
   return (

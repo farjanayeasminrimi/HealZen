@@ -19,6 +19,7 @@
 
   --animate-float: float 6s ease-in-out infinite;
   --animate-pulse-slow: pulse-slow 3s infinite;
+  --animate-loading-bar: loading-bar 1.5s ease-in-out infinite;
 }
 
 @keyframes float {
@@ -40,6 +41,15 @@
   50% {
     opacity: 0.8;
     transform: scale(1.01);
+  }
+}
+
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
   }
 }
 
