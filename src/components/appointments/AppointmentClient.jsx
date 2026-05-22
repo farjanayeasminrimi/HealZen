@@ -347,7 +347,7 @@ function AppointmentsContent({
                       href={`/appointments/${doc._id || doc.id}`}
                       className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-sm transition-all cursor-pointer"
                     >
-                      <BookmarkPlus className="w-3.5 h-3.5" /> Book Consultation
+                      <BookmarkPlus className="w-3.5 h-3.5" /> View Details
                     </Link>
                   </div>
                 </div>

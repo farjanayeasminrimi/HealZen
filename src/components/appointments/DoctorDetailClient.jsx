@@ -27,40 +27,49 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
   const [loading, setLoading] = useState(!initialDoctor);
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [formData, setFormData] = useState({
-    patientName: "",
-    patientEmail: "",
-    patientPhone: "",
-    notes: "",
-  });
-  const [isBooked, setIsBooked] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [bookingId, setBookingId] = useState("");
+  const [formData, setFormData] = useState(() => {
+    if (typeof window === "undefined") {
+      return {
+        patientName: "",
+        patientEmail: "",
+        patientPhone: "",
+        notes: "",
+      };
+    }
 
-  // Retrieve logged-in user to pre-fill the form
-  useEffect(() => {
     try {
       const savedUser = localStorage.getItem("loggedUser");
       if (savedUser) {
         const u = JSON.parse(savedUser);
-        setFormData((prev) => ({
-          ...prev,
-          patientName: prev.patientName || u.name || "",
-          patientEmail: prev.patientEmail || u.email || "",
-          patientPhone: prev.patientPhone || u.phone || "",
-        }));
+        return {
+          patientName: u.name || "",
+          patientEmail: u.email || "",
+          patientPhone: u.phone || "",
+          notes: "",
+        };
       }
     } catch (e) {
       // ignore
     }
-  }, []);
+
+    return {
+      patientName: "",
+      patientEmail: "",
+      patientPhone: "",
+      notes: "",
+    };
+  });
+  const [isBooked, setIsBooked] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [bookingId, setBookingId] = useState("");
+  const [appointmentDetails, setAppointmentDetails] = useState(null);
+  const [confirmationResponse, setConfirmationResponse] = useState(null);
 
   useEffect(() => {
     if (initialDoctor) return;
 
-    // Client-side fetch fallback
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://heal-zen-backend.vercel.app";
-    fetch(`${backendUrl}/doctors`)
+    // Client-side fetch fallback through internal proxy route
+    fetch("/api/doctors")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch doctors");
         return res.json();
@@ -137,11 +146,13 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
     return Object.keys(tempErrors).length === 0;
   };
 
+  const generateBookingId = () => `HZ-${Math.floor(100000 + Math.random() * 900000)}`;
+
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const newBookingId = `HZ-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newBookingId = generateBookingId();
     setBookingId(newBookingId);
 
     const newAppointment = {
@@ -171,9 +182,8 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
       console.error("Failed to save appointment to localStorage:", error);
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://heal-zen-backend.vercel.app";
     try {
-      await fetch(`${backendUrl}/appointments`, {
+      await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newAppointment),
@@ -182,7 +192,32 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
       console.warn("Backend appointment save failed:", error);
     }
 
+    setAppointmentDetails(newAppointment);
+    await bookAppointmentHandler(newAppointment);
     setIsBooked(true);
+  };
+
+  const bookAppointmentHandler = async (appointmentData) => {
+    if (!appointmentData) {
+      console.warn("No appointment data to confirm on the server.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/confirmAppointments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(appointmentData),
+      });
+      const data = await response.json();
+      setConfirmationResponse(data);
+      return data;
+    } catch (error) {
+      console.warn("Failed to send appointment confirmation to server:", error);
+    }
   };
 
   return (
@@ -324,7 +359,7 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
                 </span>
               </div>
 
-              <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-4 max-h-75 overflow-y-auto pr-1">
                 {doctor.reviews && doctor.reviews.length > 0 ? (
                   doctor.reviews.map((rev) => (
                     <div
@@ -504,7 +539,7 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
                   type="submit"
                   className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/15 transition-all cursor-pointer mt-2"
                 >
-                  Confirm Booking (${doctor.fee})
+                  {`Book Appointment ($${doctor.fee})`}
                 </button>
               </form>
             </div>
