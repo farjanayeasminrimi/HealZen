@@ -1,16 +1,34 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Sun, Moon, Menu, X, HeartPulse } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Sun, Moon, Menu, X, HeartPulse, LogOut } from "lucide-react";
+import { authClient, useSession } from "@/lib/auth-client";
 
 const Navbar = () => {
   const pathname = usePathname(); // Tracks current URL path (e.g., "/" or "/dashboard")
+  const router = useRouter();
+  const {
+    data: session,
+    isPending, //loading state
+    error, //error object
+    refetch, //refetch the session
+  } = authClient.useSession();
+  // console.log(session);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
+  const user = session?.user;
+  const isAuthenticated = Boolean(user);
 
   // React State variables
-  const [theme, setTheme] = useState("light"); // Tracks active color theme ("light" or "dark")
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "light";
+    return localStorage.getItem("theme") || "light";
+  }); // Tracks active color theme ("light" or "dark")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Controls mobile dropdown state
+  const [isMobileProfileActionsOpen, setIsMobileProfileActionsOpen] = useState(false);
 
   // ----------------------------------------------------
   // EFFECT 1: Runs once when component mounts in browser
@@ -102,21 +120,72 @@ const Navbar = () => {
               {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </button>
 
-            {/* Visual Login Button (Transparent/Outline fills on hover) */}
-            <Link
-              href="/login"
-              className="px-4 py-2.5 bg-transparent text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-800 hover:bg-slate-700 hover:text-white hover:border-slate-700 dark:hover:bg-slate-200 dark:hover:text-slate-900 dark:hover:border-slate-200 rounded-xl text-sm font-bold transition-colors duration-300 shadow-sm"
-            >
-              Login
-            </Link>
-
-            {/* Visual Register Button (Solid color transitions on hover) */}
-            <Link
-              href="/register"
-              className="px-4 py-2.5 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-bold transition-colors duration-300 shadow-sm"
-            >
-              Register
-            </Link>
+            {isAuthenticated ? (
+              <div className="relative">
+                <div className="flex items-center gap-3 rounded-full bg-brand-600 text-white dark:bg-brand-500 px-3 py-1.5 shadow-sm transition-all duration-200">
+                  <div className="hidden sm:block text-sm font-semibold capitalize text-white">
+                    {user?.name ?? user?.email ?? "Profile"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                    aria-label="Open profile menu"
+                    className="h-9 w-9 overflow-hidden rounded-full bg-white dark:bg-white/10 flex items-center justify-center text-sm font-bold text-brand-600 dark:text-white focus:outline-none"
+                  >
+                    {user?.image ? (
+                      <Image
+                        src={user.image}
+                        alt={user?.name ?? "Profile"}
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span>{(user?.name || user?.email || "U")[0]?.toUpperCase()}</span>
+                    )}
+                  </button>
+                </div>
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 top-full mt-3 min-w-45 overflow-hidden rounded-3xl bg-white dark:bg-slate-950 shadow-xl border border-slate-200 dark:border-slate-800">
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                    >
+                      <span>My Profile</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await authClient.signOut();
+                        setIsProfileMenuOpen(false);
+                        router.push("/logout");
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-4 py-2.5 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-bold transition-colors duration-300 shadow-sm"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-4 py-2.5 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-bold transition-colors duration-300 shadow-sm"
+                >
+                  Register
+                </Link>
+              </>
+            )}
           </div>
 
           {/* 4. MOBILE DEVICE TOGGLES & TRIGGERS */}
@@ -171,22 +240,80 @@ const Navbar = () => {
             </div>
 
             {/* Mobile Visual Auth Buttons Panel */}
-            <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center gap-3">
-              <Link
-                href="/login"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex-1 text-center px-4 py-3 bg-transparent text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-800 hover:bg-slate-700 hover:text-white hover:border-slate-700 dark:hover:bg-slate-200 dark:hover:text-slate-900 dark:hover:border-slate-200 rounded-xl text-sm font-extrabold transition-colors duration-300 shadow-sm"
-              >
-                Login
-              </Link>
-              <Link
-                href="/register"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex-1 text-center px-4 py-3 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-extrabold transition-colors duration-300 shadow-sm"
-              >
-                Register
-              </Link>
-            </div>
+            {isAuthenticated ? (
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 space-y-3">
+                <div className="flex items-center gap-3 rounded-3xl bg-slate-100 dark:bg-slate-900 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">
+                      {user?.name ?? user?.email ?? "Profile"}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Logged in</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileProfileActionsOpen((s) => !s)}
+                    aria-label="Toggle mobile profile actions"
+                    className="h-12 w-12 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+                  >
+                    {user?.image ? (
+                      <Image
+                        src={user.image}
+                        alt={user?.name ?? "Profile"}
+                        width={48}
+                        height={48}
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span>{(user?.name || user?.email || "U")[0]?.toUpperCase()}</span>
+                    )}
+                  </button>
+                </div>
+                {isMobileProfileActionsOpen && (
+                  <div className="space-y-3 px-1">
+                    <Link
+                      href="/profile"
+                      onClick={() => {
+                        setIsMobileProfileActionsOpen(false);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full block text-center px-4 py-3 rounded-2xl bg-transparent text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-sm font-semibold"
+                    >
+                      My Profile
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await authClient.signOut();
+                        setIsMobileProfileActionsOpen(false);
+                        setIsMobileMenuOpen(false);
+                        router.push("/logout");
+                      }}
+                      className="w-full px-4 py-3 rounded-2xl bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 transition-all duration-200 text-sm font-semibold"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center gap-3">
+                <Link
+                  href="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex-1 text-center px-4 py-3 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-extrabold transition-colors duration-300 shadow-sm"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex-1 text-center px-4 py-3 bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 dark:bg-brand-500 dark:border-brand-500 dark:hover:bg-brand-600 dark:hover:border-brand-600 rounded-xl text-sm font-extrabold transition-colors duration-300 shadow-sm"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}
