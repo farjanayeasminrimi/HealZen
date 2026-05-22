@@ -3,8 +3,18 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Calendar, Clock, Trash2, User, Edit2, X as CloseIcon, Phone, Mail, Lock } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Calendar,
+  Clock,
+  Trash2,
+  User,
+  Edit2,
+  X as CloseIcon,
+  Phone,
+  Mail,
+  Lock,
+} from "lucide-react";
 
 /**
  * PATIENT PORTAL DASHBOARD PAGE
@@ -18,8 +28,13 @@ import { Calendar, Clock, Trash2, User, Edit2, X as CloseIcon, Phone, Mail, Lock
  */
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   // Tab control state: "bookings" or "profile"
-  const [activeTab, setActiveTab] = useState("bookings");
+  const [activeTab, setActiveTab] = useState(() => {
+    // Check if tab query parameter is set to "profile"
+    return searchParams.get("tab") === "profile" ? "profile" : "bookings";
+  });
 
   // Editing state variables
   const [isEditing, setIsEditing] = useState(false);
@@ -176,7 +191,7 @@ export default function Dashboard() {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
             const filtered = parsed.filter(
-              (appt) => appt && appt.bookingId && !cancelledIds.includes(appt.bookingId)
+              (appt) => appt && appt.bookingId && !cancelledIds.includes(appt.bookingId),
             );
             setAppointments(filtered);
             return;
@@ -239,8 +254,14 @@ export default function Dashboard() {
     e.preventDefault();
     if (!apptToCancel) return;
 
-    const cleanDocName = apptToCancel.doctorName.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").trim();
-    const cleanInput = confirmInput.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").trim();
+    const cleanDocName = apptToCancel.doctorName
+      .toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
+      .trim();
+    const cleanInput = confirmInput
+      .toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
+      .trim();
 
     if (!cleanInput) {
       setConfirmError("Please write one word from the doctor's name.");
@@ -250,9 +271,8 @@ export default function Dashboard() {
     const docNameWords = cleanDocName.split(/\s+/);
     const inputWords = cleanInput.split(/\s+/);
 
-    const isMatch = 
-      cleanDocName.includes(cleanInput) || 
-      inputWords.some(word => docNameWords.includes(word));
+    const isMatch =
+      cleanDocName.includes(cleanInput) || inputWords.some((word) => docNameWords.includes(word));
 
     if (isMatch) {
       // Try deleting via backend if possible
@@ -470,7 +490,8 @@ export default function Dashboard() {
   const upcomingAppts = appointments.filter(
     (appt) =>
       (appt.status === "Upcoming" || new Date(appt.date) >= new Date()) &&
-      (!appt.patientEmail || appt.patientEmail.toLowerCase() === currentUserObj.email?.toLowerCase())
+      (!appt.patientEmail ||
+        appt.patientEmail.toLowerCase() === currentUserObj.email?.toLowerCase()),
   );
 
   return (
@@ -873,7 +894,10 @@ export default function Dashboard() {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSaveAppointment} className="flex flex-col gap-4 text-left max-h-[70vh] overflow-y-auto pr-1">
+            <form
+              onSubmit={handleSaveAppointment}
+              className="flex flex-col gap-4 text-left max-h-[70vh] overflow-y-auto pr-1"
+            >
               {/* Doctor Details (Read-only section) */}
               <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/80 p-4 rounded-2xl flex flex-col gap-2">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -923,7 +947,10 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Patient Name */}
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="formName" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  <label
+                    htmlFor="formName"
+                    className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
+                  >
                     Patient Name
                   </label>
                   <input
@@ -939,7 +966,10 @@ export default function Dashboard() {
 
                 {/* Patient Phone */}
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="formPhone" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  <label
+                    htmlFor="formPhone"
+                    className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
+                  >
                     Contact Phone
                   </label>
                   <input
@@ -957,7 +987,10 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Appointment Date */}
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="formDate" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  <label
+                    htmlFor="formDate"
+                    className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
+                  >
                     Appointment Date
                   </label>
                   <input
@@ -972,7 +1005,10 @@ export default function Dashboard() {
 
                 {/* Time Slot Selection */}
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="formTime" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  <label
+                    htmlFor="formTime"
+                    className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
+                  >
                     Time Slot
                   </label>
                   <select
@@ -984,11 +1020,25 @@ export default function Dashboard() {
                   >
                     {/* Make sure the current value is always an option */}
                     {![
-                      "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
-                      "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM"
-                    ].includes(formTime) && formTime && (
-                      <option value={formTime}>{formTime}</option>
-                    )}
+                      "08:00 AM",
+                      "08:30 AM",
+                      "09:00 AM",
+                      "09:30 AM",
+                      "10:00 AM",
+                      "10:30 AM",
+                      "11:00 AM",
+                      "11:30 AM",
+                      "01:00 PM",
+                      "01:30 PM",
+                      "02:00 PM",
+                      "02:30 PM",
+                      "03:00 PM",
+                      "03:30 PM",
+                      "04:00 PM",
+                      "04:30 PM",
+                      "05:00 PM",
+                    ].includes(formTime) &&
+                      formTime && <option value={formTime}>{formTime}</option>}
                     <option value="08:00 AM">08:00 AM</option>
                     <option value="08:30 AM">08:30 AM</option>
                     <option value="09:00 AM">09:00 AM</option>
@@ -1012,7 +1062,10 @@ export default function Dashboard() {
 
               {/* Reason for Appointment */}
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="formReason" className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                <label
+                  htmlFor="formReason"
+                  className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
+                >
                   Reason for Consultation / Symptoms
                 </label>
                 <textarea

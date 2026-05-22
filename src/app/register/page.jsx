@@ -34,6 +34,12 @@ export default function RegisterPage() {
     // Pure design/visual behavior - no backend/authentication logic
   };
 
+  const socialHandler = async () => {
+    const data = await authClient.signIn.social({
+      provider: "google",
+    });
+  };
+
   return (
     <div className="w-full min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/50 dark:bg-slate-900/40 transition-colors duration-300">
       <div className="max-w-md w-full">
@@ -72,7 +78,6 @@ export default function RegisterPage() {
                   type="text"
                   required
                   name="name"
-                  value={name}
                   defaultValue={""}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
@@ -95,7 +100,6 @@ export default function RegisterPage() {
                   name="email"
                   required
                   defaultValue={""}
-                  value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-500 transition-colors duration-300 shadow-sm"
@@ -115,7 +119,6 @@ export default function RegisterPage() {
                 <input
                   type="url"
                   name="url"
-                  value={photoUrl}
                   defaultValue={""}
                   onChange={(e) => setPhotoUrl(e.target.value)}
                   placeholder="https://images.unsplash.com/photo-..."
@@ -138,7 +141,6 @@ export default function RegisterPage() {
                   required
                   name="password"
                   defaultValue={""}
-                  value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-500 transition-colors duration-300 shadow-sm"
@@ -180,7 +182,7 @@ export default function RegisterPage() {
           {/* Social Sign-Up (Google only, as requested) - At the bottom */}
           <button
             type="button"
-            onClick={() => alert("Google Signup clicked! (Design only)")}
+            onClick={socialHandler}
             className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/80 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 transition-all duration-300 cursor-pointer shadow-sm active:scale-98"
           >
             {/* Google Icon */}

@@ -149,7 +149,7 @@ const Navbar = () => {
                 {isProfileMenuOpen && (
                   <div className="absolute right-0 top-full mt-3 min-w-45 overflow-hidden rounded-3xl bg-white dark:bg-slate-950 shadow-xl border border-slate-200 dark:border-slate-800">
                     <Link
-                      href="/profile"
+                      href="/dashboard?tab=profile"
                       onClick={() => setIsProfileMenuOpen(false)}
                       className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                     >
@@ -272,7 +272,7 @@ const Navbar = () => {
                 {isMobileProfileActionsOpen && (
                   <div className="space-y-3 px-1">
                     <Link
-                      href="/profile"
+                      href="/dashboard?tab=profile"
                       onClick={() => {
                         setIsMobileProfileActionsOpen(false);
                         setIsMobileMenuOpen(false);
