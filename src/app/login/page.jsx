@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Toast states
   const [toastMessage, setToastMessage] = useState("");
@@ -73,11 +74,20 @@ export default function LoginPage() {
   const handleMockSubmit = async (e) => {
     e.preventDefault();
 
+    if (isSubmitting) {
+      return;
+    }
+
     setEmailError("");
     setPasswordError("");
     setSubmitError("");
 
-    // Empty Field Validation
+    const form = e.currentTarget?.form || e.currentTarget || e.target?.closest?.("form");
+
+    if (!form) {
+      return;
+    }
+
     const emailValidation = validateEmail(email);
     const passwordValidation = validatePassword(password);
 
@@ -87,33 +97,36 @@ export default function LoginPage() {
       return;
     }
 
-    const formData = new FormData(e.target);
-    const loginData = Object.fromEntries(formData.entries());
+    setIsSubmitting(true);
 
-    console.log(loginData);
+    try {
+      const formData = new FormData(form);
+      const loginData = Object.fromEntries(formData.entries());
 
-    const loginParams = {
-      email: loginData.email,
-      password: loginData.password,
-    };
+      const loginParams = {
+        email: loginData.email,
+        password: loginData.password,
+      };
 
-    if (redirectTo) {
-      loginParams.callbackURL = redirectTo;
-    }
+      if (redirectTo) {
+        loginParams.callbackURL = redirectTo;
+      }
 
-    const { data, error } = await authClient.signIn.email(loginParams);
+      const { data, error } = await authClient.signIn.email(loginParams);
 
-    console.log(data, error);
+      if (error) {
+        setSubmitError(error.message || "Login failed. Please try again.");
+        triggerToast(error.message || "Login failed. Please try again.");
+        return;
+      }
 
-    if (error) {
-      setSubmitError(error.message || "Login failed. Please try again.");
-      triggerToast(error.message || "Login failed. Please try again.");
-    }
-
-    if (data?.user) {
-      triggerToast("Logged in successfully!");
-      const destination = redirectTo || "/dashboard";
-      router.push(destination);
+      if (data?.user) {
+        triggerToast("Logged in successfully!");
+        const destination = redirectTo || "/dashboard";
+        router.push(destination);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -259,9 +272,11 @@ export default function LoginPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              className="mt-2 w-full py-3.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-brand-500/10 active:scale-98 transition-all duration-300 cursor-pointer border border-transparent"
+              disabled={isSubmitting}
+              onClick={handleMockSubmit}
+              className="mt-2 w-full py-3.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-brand-500/10 active:scale-98 transition-all duration-300 cursor-pointer border border-transparent disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Login
+              {isSubmitting ? "Logging in..." : "Login"}
             </button>
           </form>
 

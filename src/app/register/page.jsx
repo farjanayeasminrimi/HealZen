@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [photoUrl, setPhotoUrl] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Toast states
   const [toastMessage, setToastMessage] = useState("");
@@ -34,15 +35,23 @@ export default function RegisterPage() {
   const handleMockSubmit = async (e) => {
     e.preventDefault();
 
+    if (isSubmitting) {
+      return;
+    }
+
     setErrorMsg("");
 
-    // Empty field validation
+    const form = e.currentTarget?.form || e.currentTarget || e.target?.closest?.("form");
+
+    if (!form) {
+      return;
+    }
+
     if (!name || !email || !password) {
       setErrorMsg("Please fill in all required fields.");
       return;
     }
 
-    // Password validation
     if (!validatePassword(password)) {
       setErrorMsg(
         "Password must contain at least 1 uppercase letter, 1 lowercase letter, and be at least 6 characters long.",
@@ -50,28 +59,32 @@ export default function RegisterPage() {
       return;
     }
 
-    const formData = new FormData(e.target);
-    const registerData = Object.fromEntries(formData.entries());
+    setIsSubmitting(true);
 
-    const { data, error } = await authClient.signUp.email({
-      name: registerData.name, // required
-      email: registerData.email,
-      password: registerData.password,
-    });
+    try {
+      const formData = new FormData(form);
+      const registerData = Object.fromEntries(formData.entries());
 
-    if (data?.user) {
-      authClient.signOut();
-      triggerToast("Registration successful. Please login.");
-      router.push("/login");
+      const { data, error } = await authClient.signUp.email({
+        name: registerData.name,
+        email: registerData.email,
+        password: registerData.password,
+      });
+
+      if (data?.user) {
+        authClient.signOut();
+        triggerToast("Registration successful. Please login.");
+        router.push("/login");
+        return;
+      }
+
+      if (error) {
+        setErrorMsg(error.message || "Registration failed.");
+        triggerToast(error.message || "Registration failed.");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-
-    if (error) {
-      setErrorMsg(error.message || "Registration failed.");
-      triggerToast(error.message || "Registration failed.");
-    }
-
-    console.log(data, error);
-    // Pure design/visual behavior - no backend/authentication logic
   };
 
   const socialHandler = async () => {
@@ -216,9 +229,11 @@ export default function RegisterPage() {
             {/* Register Button */}
             <button
               type="submit"
-              className="mt-2 w-full py-3.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-brand-500/10 active:scale-98 transition-all duration-300 cursor-pointer border border-transparent"
+              disabled={isSubmitting}
+              onClick={handleMockSubmit}
+              className="mt-2 w-full py-3.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-brand-500/10 active:scale-98 transition-all duration-300 cursor-pointer border border-transparent disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Register
+              {isSubmitting ? "Creating account..." : "Register"}
             </button>
           </form>
 
