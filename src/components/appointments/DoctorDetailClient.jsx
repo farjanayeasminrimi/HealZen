@@ -64,12 +64,12 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
   const [bookingId, setBookingId] = useState("");
   const [appointmentDetails, setAppointmentDetails] = useState(null);
   const [confirmationResponse, setConfirmationResponse] = useState(null);
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://heal-zen-backend.vercel.app";
 
   useEffect(() => {
     if (initialDoctor) return;
 
-    // Client-side fetch fallback through internal proxy route
-    fetch("/api/doctors")
+    fetch(`${backendUrl}/doctors`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch doctors");
         return res.json();
@@ -182,19 +182,27 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
       console.error("Failed to save appointment to localStorage:", error);
     }
 
-    try {
-      await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newAppointment),
-      });
-    } catch (error) {
-      console.warn("Backend appointment save failed:", error);
-    }
+    const saveAppointment = async () => {
+      try {
+        const response = await fetch(`${backendUrl}/confirmAppointments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newAppointment),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn("Backend appointment save failed:", response.status, errorText);
+        }
+      } catch (error) {
+        console.warn("Backend appointment save failed:", error);
+      }
+    };
 
     setAppointmentDetails(newAppointment);
-    await bookAppointmentHandler(newAppointment);
     setIsBooked(true);
+
+    saveAppointment();
   };
 
   const bookAppointmentHandler = async (appointmentData) => {
@@ -204,7 +212,7 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
     }
 
     try {
-      const response = await fetch("/api/confirmAppointments", {
+      const response = await fetch(`${NEXT_PUBLIC_BACKEND_URL}/confirmAppointments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -212,6 +220,13 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
         },
         body: JSON.stringify(appointmentData),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn("Failed to save appointment to backend:", response.status, errorText);
+        return null;
+      }
+
       const data = await response.json();
       setConfirmationResponse(data);
       return data;
@@ -536,6 +551,7 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
 
                 {/* Submit button */}
                 <button
+                  onClick={bookAppointmentHandler}
                   type="submit"
                   className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/15 transition-all cursor-pointer mt-2"
                 >

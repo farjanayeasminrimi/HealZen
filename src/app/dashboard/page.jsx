@@ -592,6 +592,17 @@ export default function Dashboard() {
 
     const selected = presets[avatarId] || presets["avatar-1"];
 
+    const updateAppointmentHandler = async () => {
+      const updateData = await fetch(`/api/confirmAppointments/${_id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          // authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(appointmentUpdateData),
+      });
+      const data = await updateData.json();
+    };
     return (
       <div
         className={`${sizeClass} rounded-2xl ${selected.bg} flex items-center justify-center font-bold shadow-inner relative overflow-hidden text-white shrink-0 border border-white/10 transition-transform duration-300`}
@@ -1217,6 +1228,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   type="submit"
+                  onClick={updateAppointmentHandler}
                   className="grow py-3 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 active:scale-95 transition-all duration-200 cursor-pointer text-center"
                 >
                   Save Changes
