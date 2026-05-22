@@ -15,6 +15,7 @@ import {
   Mail,
   Lock,
 } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
 
 /**
  * PATIENT PORTAL DASHBOARD PAGE
@@ -39,18 +40,34 @@ export default function Dashboard() {
   // Editing state variables
   const [isEditing, setIsEditing] = useState(false);
 
-  // Initialize user and edit fields from localStorage synchronously to avoid setState in effect
+  // Get session data
+  const { data: session, isPending, error, refetch } = authClient.useSession();
+
+  // Use session user data, fallback to localStorage
   const getInitialUser = () => {
+    if (session?.user) {
+      return {
+        name: session.user.name || "User",
+        email: session.user.email || "",
+        image: session.user.image || "",
+        phone: session.user.phone || "+1 (555) 000-0000",
+        age: session.user.age || 30,
+        gender: session.user.gender || "Not specified",
+        bloodGroup: session.user.bloodGroup || "Not specified",
+      };
+    }
+
     try {
       const saved = localStorage.getItem("loggedUser");
       if (saved) return JSON.parse(saved);
     } catch (e) {
       // ignore
     }
+
     const defaultUser = {
       name: "John Doe",
       email: "j.doe@healzen.net",
-      avatar: "avatar-1",
+      image: "",
       phone: "+1 (555) 019-2834",
       age: 32,
       gender: "Male",
@@ -65,7 +82,9 @@ export default function Dashboard() {
   const initialUser = typeof window !== "undefined" ? getInitialUser() : null;
   const [user, setUser] = useState(initialUser);
   const [editName, setEditName] = useState(initialUser?.name || "");
-  const [editAvatar, setEditAvatar] = useState(initialUser?.avatar || "avatar-1");
+  const [editAvatar, setEditAvatar] = useState(
+    initialUser?.avatar || initialUser?.image || "avatar-1",
+  );
 
   // Cancellation Modal states
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -88,6 +107,32 @@ export default function Dashboard() {
 
   // Core application states
   const [appointments, setAppointments] = useState([]);
+
+  // ----------------------------------------------------
+  // EFFECT 0: Update user when session data changes
+  // ----------------------------------------------------
+  useEffect(() => {
+    if (session?.user) {
+      const sessionUser = {
+        name: session.user.name || "User",
+        email: session.user.email || "",
+        image: session.user.image || "",
+        phone: session.user.phone || "+1 (555) 000-0000",
+        age: session.user.age || 30,
+        gender: session.user.gender || "Not specified",
+        bloodGroup: session.user.bloodGroup || "Not specified",
+      };
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUser(sessionUser);
+      setEditName(sessionUser.name);
+      setEditAvatar(sessionUser.image || "avatar-1");
+      try {
+        localStorage.setItem("loggedUser", JSON.stringify(sessionUser));
+      } catch (e) {
+        // ignore storage failures
+      }
+    }
+  }, [session?.user]);
 
   // ----------------------------------------------------
   // EFFECT 1: Initial Mount - Sync State from LocalStorage
@@ -206,10 +251,43 @@ export default function Dashboard() {
     loadAppointments();
   }, [initialUser, user]);
 
+  const saveUserLocally = (updatedUser) => {
+    try {
+      localStorage.setItem("loggedUser", JSON.stringify(updatedUser));
+    } catch (e) {
+      console.warn("Unable to save profile locally:", e);
+    }
+    setUser(updatedUser);
+  };
+
+  const updateUserRemote = async (updatedUser) => {
+    try {
+      const res = await fetch("/api/auth/update-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: updatedUser.name,
+          image: updatedUser.image || updatedUser.avatar,
+        }),
+      });
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.message || "Failed to update profile on server");
+      }
+      return true;
+    } catch (error) {
+      console.warn("Profile update failed:", error);
+      return false;
+    }
+  };
+
   // ----------------------------------------------------
   // ACTION HANDLER: Save Profile Details
   // ----------------------------------------------------
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!editName.trim()) return;
 
@@ -217,12 +295,17 @@ export default function Dashboard() {
       ...user,
       name: editName,
       avatar: editAvatar,
+      image: editAvatar,
     };
 
-    // Save to LocalStorage and update React state
-    localStorage.setItem("loggedUser", JSON.stringify(updatedUser));
-    setUser(updatedUser);
+    saveUserLocally(updatedUser);
     setIsEditing(false);
+
+    const success = await updateUserRemote(updatedUser);
+    if (!success) {
+      // Keep the profile saved locally if backend update fails.
+      return;
+    }
   };
 
   // ----------------------------------------------------
@@ -230,7 +313,7 @@ export default function Dashboard() {
   // ----------------------------------------------------
   const handleCancelEdit = () => {
     setEditName(user.name || "");
-    setEditAvatar(user.avatar || "avatar-1");
+    setEditAvatar(user.image || user.avatar || "avatar-1");
     setIsEditing(false);
   };
 
@@ -500,7 +583,7 @@ export default function Dashboard() {
         {/* 1. TOP HERO INFORMATION BAR */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            {user && renderAvatar(user.avatar || "avatar-1", "w-16 h-16")}
+            {user && renderAvatar(user.image || user.avatar || "avatar-1", "w-16 h-16")}
             <div>
               <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">
                 Patient Portal
@@ -614,7 +697,7 @@ export default function Dashboard() {
                       </div>
 
                       {/* Cancellation & Update operations */}
-                      <div className="px-5 py-4 sm:py-0 bg-slate-50 dark:bg-slate-950/60 sm:bg-transparent border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800/80 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-3 p-4 sm:px-6 min-w-[180px]">
+                      <div className="px-5 py-4 sm:py-0 bg-slate-50 dark:bg-slate-950/60 sm:bg-transparent border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800/80 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-3 p-4 sm:px-6 min-w-45">
                         <span className="px-2.5 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-500 text-[10px] font-bold rounded-lg uppercase tracking-wider w-fit sm:hidden">
                           {appt.status}
                         </span>
@@ -647,7 +730,10 @@ export default function Dashboard() {
               <div className="flex flex-col gap-8">
                 {/* Profile Header card */}
                 <div className="flex flex-col sm:flex-row items-center gap-6 pb-8 border-b border-slate-100 dark:border-slate-800">
-                  {renderAvatar(user.avatar || "avatar-1", "w-24 h-24 sm:w-28 sm:h-28")}
+                  {renderAvatar(
+                    user.image || user.avatar || "avatar-1",
+                    "w-24 h-24 sm:w-28 sm:h-28",
+                  )}
 
                   <div className="text-center sm:text-left">
                     <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-400 w-fit uppercase tracking-wider border border-brand-200/20 dark:border-brand-900/20">
@@ -746,7 +832,7 @@ export default function Dashboard() {
                     Profile Picture URL
                   </label>
                   <div className="flex flex-col sm:flex-row items-center gap-4 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/30 dark:bg-slate-950/10">
-                    {renderAvatar(editAvatar, "w-16 h-16")}
+                    {renderAvatar(user.image || editAvatar, "w-16 h-16")}
                     <div className="w-full grow">
                       <input
                         type="text"
