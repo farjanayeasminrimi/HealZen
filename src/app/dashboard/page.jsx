@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+
 import {
   Calendar,
   Clock,
@@ -15,16 +16,20 @@ import {
   Mail,
   Lock,
 } from "lucide-react";
+
 import { authClient } from "@/lib/auth-client";
 
 const getUserInitial = (name, email) => {
   const char = name?.trim()?.[0] || email?.trim()?.[0] || "U";
+
   return String(char).toUpperCase();
 };
 
 function AvatarLoader({ src, fallbackInitial, sizeClass = "w-14 h-14" }) {
   const [isLoaded, setIsLoaded] = useState(false);
+
   const [hasError, setHasError] = useState(false);
+
   const isUrl =
     src &&
     (src.startsWith("http://") ||
@@ -57,6 +62,7 @@ function AvatarLoader({ src, fallbackInitial, sizeClass = "w-14 h-14" }) {
       >
         {fallbackInitial}
       </div>
+
       <Image
         src={src}
         alt="Patient Profile Picture"
@@ -70,278 +76,225 @@ function AvatarLoader({ src, fallbackInitial, sizeClass = "w-14 h-14" }) {
   );
 }
 
-/**
- * PATIENT PORTAL DASHBOARD PAGE
- * Renders a complete interactive client panel for appointment tracking and biographical cards.
- *
- * Features:
- * - Tab-based Navigation: "My Bookings Track" vs "My Profile".
- * - Dynamic Profile Customization: Patients can change their profile Name and select from 4 preset avatars.
- * - LocalStorage Synchronizations: Profile edits automatically persist locally and propagate to appointment details.
- * - Non-jumpy buttons with smooth transitions.
- */
 export default function Dashboard() {
   const router = useRouter();
+
   const searchParams = useSearchParams();
 
-  // Tab control state: "bookings" or "profile"
   const [activeTab, setActiveTab] = useState(() => {
-    // Check if tab query parameter is set to "profile"
     return searchParams.get("tab") === "profile" ? "profile" : "bookings";
   });
 
-  // Editing state variables
   const [isEditing, setIsEditing] = useState(false);
 
-  // Get session data
+  // Session
   const { data: session, isPending, error, refetch } = authClient.useSession();
 
-  // Use session user data, fallback to localStorage
-  const getInitialUser = () => {
-    if (session?.user) {
-      return {
-        name: session.user.name || "User",
-        email: session.user.email || "",
-        image: session.user.image || "",
-        phone: session.user.phone || "+1 (555) 000-0000",
-        age: session.user.age || 30,
-        gender: session.user.gender || "Not specified",
-        bloodGroup: session.user.bloodGroup || "Not specified",
-      };
-    }
+  // User state
+  const [user, setUser] = useState(null);
 
-    try {
-      const saved = localStorage.getItem("loggedUser");
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      // ignore
-    }
+  const [editName, setEditName] = useState("");
 
-    const defaultUser = {
-      name: "John Doe",
-      email: "j.doe@healzen.net",
-      image: "",
-      phone: "+1 (555) 019-2834",
-      age: 32,
-      gender: "Male",
-      bloodGroup: "O-Negative",
-    };
-    try {
-      localStorage.setItem("loggedUser", JSON.stringify(defaultUser));
-    } catch (e) {}
-    return defaultUser;
-  };
+  const [editAvatar, setEditAvatar] = useState("avatar-1");
 
-  const initialUser = typeof window !== "undefined" ? getInitialUser() : null;
-  const [user, setUser] = useState(initialUser);
-  const [editName, setEditName] = useState(initialUser?.name || "");
-  const [editAvatar, setEditAvatar] = useState(
-    initialUser?.avatar || initialUser?.image || "avatar-1",
-  );
-
-  // Cancellation Modal states
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [apptToCancel, setApptToCancel] = useState(null);
-  const [confirmInput, setConfirmInput] = useState("");
-  const [confirmError, setConfirmError] = useState("");
-
-  // Edit Appointment Modal states
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [apptToEdit, setApptToEdit] = useState(null);
-  const [formName, setFormName] = useState("");
-  const [formPhone, setFormPhone] = useState("");
-  const [formDate, setFormDate] = useState("");
-  const [formTime, setFormTime] = useState("");
-  const [formReason, setFormReason] = useState("");
-
-  // Toast states
-  const [toastMessage, setToastMessage] = useState("");
-  const [showToast, setShowToast] = useState(false);
-
-  // Core application states
+  // Appointments
   const [appointments, setAppointments] = useState([]);
 
-  // ----------------------------------------------------
-  // EFFECT 0: Update user when session data changes
-  // ----------------------------------------------------
+  // Cancel modal
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  const [apptToCancel, setApptToCancel] = useState(null);
+
+  const [confirmInput, setConfirmInput] = useState("");
+
+  const [confirmError, setConfirmError] = useState("");
+
+  // Edit appointment modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const [apptToEdit, setApptToEdit] = useState(null);
+
+  const [formName, setFormName] = useState("");
+
+  const [formPhone, setFormPhone] = useState("");
+
+  const [formDate, setFormDate] = useState("");
+
+  const [formTime, setFormTime] = useState("");
+
+  const [formReason, setFormReason] = useState("");
+
+  // Toast
+  const [toastMessage, setToastMessage] = useState("");
+
+  const [showToast, setShowToast] = useState(false);
+
+  const API_BASE = process.env.NEXT_PUBLIC_SERVER_URL?.replace(/\/$/, "") ?? "";
+  const updateUserEndpoint = API_BASE ? `${API_BASE}/update-user` : "/api/auth/update-user";
+
+  // ------------------------------------------------
+  // USER LOAD
+  // ------------------------------------------------
   useEffect(() => {
-    if (session?.user) {
-      const sessionUser = {
-        name: session.user.name || "User",
-        email: session.user.email || "",
-        image: session.user.image || "",
-        phone: session.user.phone || "+1 (555) 000-0000",
-        age: session.user.age || 30,
-        gender: session.user.gender || "Not specified",
-        bloodGroup: session.user.bloodGroup || "Not specified",
-      };
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUser(sessionUser);
-      setEditName(sessionUser.name);
-      setEditAvatar(sessionUser.image || "avatar-1");
+    const loadUser = async () => {
       try {
-        localStorage.setItem("loggedUser", JSON.stringify(sessionUser));
-      } catch (e) {
-        // ignore storage failures
+        if (session?.user) {
+          const sessionUser = {
+            name: session.user.name || "User",
+            email: session.user.email || "",
+            image: session.user.image || "",
+            phone: session.user.phone || "+1 (555) 000-0000",
+            age: session.user.age || 30,
+            gender: session.user.gender || "Not specified",
+            bloodGroup: session.user.bloodGroup || "Not specified",
+          };
+
+          setUser(sessionUser);
+
+          setEditName(sessionUser.name);
+
+          setEditAvatar(sessionUser.image || "avatar-1");
+
+          localStorage.setItem("loggedUser", JSON.stringify(sessionUser));
+
+          return;
+        }
+
+        const saved = localStorage.getItem("loggedUser");
+
+        if (saved) {
+          const parsed = JSON.parse(saved);
+
+          setUser(parsed);
+
+          setEditName(parsed.name || "");
+
+          setEditAvatar(parsed.image || parsed.avatar || "avatar-1");
+
+          return;
+        }
+
+        const defaultUser = {
+          name: "John Doe",
+          email: "j.doe@healzen.net",
+          image: "",
+          phone: "+1 (555) 019-2834",
+          age: 32,
+          gender: "Male",
+          bloodGroup: "O-Negative",
+        };
+
+        setUser(defaultUser);
+
+        setEditName(defaultUser.name);
+
+        setEditAvatar("avatar-1");
+
+        localStorage.setItem("loggedUser", JSON.stringify(defaultUser));
+      } catch (error) {
+        console.error("User load failed:", error);
       }
-    }
+    };
+
+    loadUser();
   }, [session?.user]);
 
-  // ----------------------------------------------------
-  // EFFECT 1: Initial Mount - Sync State from LocalStorage
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // LOAD APPOINTMENTS
+  // ------------------------------------------------
   useEffect(() => {
-    // Load scheduled appointments from API, fallback to localStorage
-    const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, "") ||
-      "https://heal-zen-backend.vercel.app";
-
-    const currentUser = user ||
-      initialUser || {
-        name: "John Doe",
-        email: "j.doe@healzen.net",
-        phone: "+1 (555) 019-2834",
-      };
-    const userEmail = currentUser?.email;
+    if (!user?.email) return;
 
     const loadAppointments = async () => {
-      // Get cancelled appointments list from localStorage
-      const cancelledIds = (() => {
-        try {
-          const c = localStorage.getItem("cancelledAppointments");
-          return c ? JSON.parse(c) : [];
-        } catch (e) {
-          return [];
+      try {
+        const { data } = await authClient.getSession();
+
+        const token = data?.token;
+
+        const cancelledIds = JSON.parse(localStorage.getItem("cancelledAppointments") || "[]");
+
+        const res = await fetch(
+          `${API_BASE}/appointments?email=${encodeURIComponent(user.email)}`,
+          {
+            headers: {
+              authorization: `Bearer ${token}`,
+            },
+            cache: "no-store",
+          },
+        );
+
+        const dataAppointments = await res.json();
+
+        if (Array.isArray(dataAppointments) && dataAppointments.length > 0) {
+          const normalized = dataAppointments
+            .map((d) => ({
+              bookingId: d.bookingId || d.id || d._id,
+
+              doctorId: d.doctorId || d.doctor?._id,
+
+              doctorName: d.doctorName || d.doctor?.name,
+
+              doctorSpecialty: d.doctorSpecialty || d.doctor?.specialty,
+
+              doctorImage: d.doctorImage || d.doctor?.image,
+
+              doctorHospital: d.doctorHospital || d.doctor?.hospital,
+
+              date: d.date || d.appointmentDate,
+
+              timeSlot: d.timeSlot || d.slot,
+
+              patientName: d.patientName || user.name,
+
+              patientEmail: d.patientEmail || user.email,
+
+              patientPhone: d.patientPhone || user.phone,
+
+              patientReason: d.patientReason || d.reason || "",
+
+              status: d.status || "Upcoming",
+
+              raw: d,
+            }))
+            .filter((appt) => appt.bookingId && !cancelledIds.includes(appt.bookingId));
+
+          setAppointments(normalized);
+
+          localStorage.setItem("appointments", JSON.stringify(normalized));
+
+          return;
         }
-      })();
 
-      // Try API endpoints that may exist on user's backend
-      const endpoints = [
-        `${backendUrl}/appointments${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ""}`,
-        `${backendUrl}/bookings${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ""}`,
-        `${backendUrl}/appointments`,
-        `${backendUrl}/bookings`,
-      ];
+        // fallback localStorage
+        const saved = localStorage.getItem("appointments");
 
-      for (const url of endpoints) {
-        try {
-          const res = await fetch(url, { cache: "no-store" });
-          if (!res.ok) continue;
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            // Normalize minimal expected fields if needed
-            const normalized = data
-              .map((d) => ({
-                bookingId: d.bookingId || d.id || d._id || (d.booking && d.booking.id),
-                doctorId: d.doctorId || d.doctor?._id || d.doctorId,
-                doctorName: d.doctorName || d.doctor?.name || d.doctorName,
-                doctorSpecialty: d.doctorSpecialty || d.doctor?.specialty || d.specialty,
-                doctorImage: d.doctorImage || d.doctor?.image || d.image || d.doctorImage,
-                doctorHospital: d.doctorHospital || d.doctor?.hospital || d.hospital,
-                date: d.date || d.appointmentDate || d.slotDate,
-                timeSlot: d.timeSlot || d.slot || d.time,
-                patientName: d.patientName || d.user?.name || currentUser.name,
-                patientEmail: d.patientEmail || d.user?.email || currentUser.email,
-                patientPhone: d.patientPhone || d.user?.phone || currentUser.phone,
-                patientReason: d.patientReason || d.reason || d.note || "",
-                status: d.status || (new Date(d.date) >= new Date() ? "Upcoming" : "Completed"),
-                raw: d,
-              }))
-              .filter((appt) => appt && appt.bookingId && !cancelledIds.includes(appt.bookingId));
-
-            // Merge backend data with locally saved appointments
-            const savedLocal = (() => {
-              try {
-                const s = localStorage.getItem("appointments");
-                return s ? JSON.parse(s) : [];
-              } catch (e) {
-                return [];
-              }
-            })();
-
-            const merged = [...normalized];
-            if (Array.isArray(savedLocal)) {
-              savedLocal.forEach((localAppt) => {
-                if (
-                  localAppt &&
-                  localAppt.bookingId &&
-                  !cancelledIds.includes(localAppt.bookingId) &&
-                  !merged.some((m) => m.bookingId === localAppt.bookingId)
-                ) {
-                  merged.push(localAppt);
-                }
-              });
-            }
-
-            setAppointments(merged);
-            localStorage.setItem("appointments", JSON.stringify(merged));
-            return;
-          }
-        } catch (e) {
-          // try next endpoint
-        }
-      }
-
-      // If no API data, fallback to localStorage saved appointments
-      const saved = localStorage.getItem("appointments");
-      if (saved) {
-        try {
+        if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const filtered = parsed.filter(
-              (appt) => appt && appt.bookingId && !cancelledIds.includes(appt.bookingId),
-            );
-            setAppointments(filtered);
-            return;
-          }
-        } catch (e) {}
-      }
 
-      // Final fallback: keep appointments empty (no seed data)
-      setAppointments([]);
+          setAppointments(parsed);
+        }
+      } catch (error) {
+        console.error("Appointments fetch failed:", error);
+
+        const saved = localStorage.getItem("appointments");
+
+        if (saved) {
+          const parsed = JSON.parse(saved);
+
+          setAppointments(parsed);
+        }
+      }
     };
 
     loadAppointments();
-  }, [initialUser, user]);
+  }, [user]);
 
-  const saveUserLocally = (updatedUser) => {
-    try {
-      localStorage.setItem("loggedUser", JSON.stringify(updatedUser));
-    } catch (e) {
-      console.warn("Unable to save profile locally:", e);
-    }
-    setUser(updatedUser);
-  };
-
-  const updateUserRemote = async (updatedUser) => {
-    try {
-      const res = await fetch("/api/auth/update-user", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: updatedUser.name,
-          image: updatedUser.image || updatedUser.avatar,
-        }),
-      });
-
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        throw new Error(payload?.message || "Failed to update profile on server");
-      }
-      return true;
-    } catch (error) {
-      console.warn("Profile update failed:", error);
-      return false;
-    }
-  };
-
-  // ----------------------------------------------------
-  // ACTION HANDLER: Save Profile Details
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // SAVE USER
+  // ------------------------------------------------
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+
     if (!editName.trim()) return;
 
     const updatedUser = {
@@ -351,177 +304,182 @@ export default function Dashboard() {
       image: editAvatar,
     };
 
-    saveUserLocally(updatedUser);
-    setIsEditing(false);
+    try {
+      const { data } = await authClient.getSession();
 
-    const success = await updateUserRemote(updatedUser);
-    if (!success) {
-      // Keep the profile saved locally if backend update fails.
-      return;
+      const token = data?.token;
+
+      const response = await fetch(updateUserEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: updatedUser.name,
+          image: updatedUser.image,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.message || response.statusText || "Profile update failed.";
+        throw new Error(errorMessage);
+      }
+
+      setUser(updatedUser);
+      localStorage.setItem("loggedUser", JSON.stringify(updatedUser));
+      setIsEditing(false);
+      triggerToast("Profile updated successfully!");
+
+      if (typeof refetch === "function") {
+        await refetch();
+      }
+    } catch (error) {
+      console.error("Profile update failed:", error);
+      triggerToast(error?.message || "Profile update failed. Please try again.");
     }
   };
 
-  // ----------------------------------------------------
-  // ACTION HANDLER: Cancel Profile Editing
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // CANCEL EDIT
+  // ------------------------------------------------
   const handleCancelEdit = () => {
     setEditName(user.name || "");
+
     setEditAvatar(user.image || user.avatar || "avatar-1");
+
     setIsEditing(false);
   };
 
-  // ----------------------------------------------------
-  // ACTION HANDLER: Cancel Appointment
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // CANCEL APPOINTMENT
+  // ------------------------------------------------
   const handleCancelAppointment = (bookingId) => {
     const appt = appointments.find((a) => a.bookingId === bookingId);
-    if (appt) {
-      setApptToCancel(appt);
-      setConfirmInput("");
-      setConfirmError("");
-      setIsCancelModalOpen(true);
-    }
+
+    if (!appt) return;
+
+    setApptToCancel(appt);
+
+    setConfirmInput("");
+
+    setConfirmError("");
+
+    setIsCancelModalOpen(true);
   };
 
-  // ----------------------------------------------------
-  // ACTION HANDLER: Confirm Cancellation from Modal
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // CONFIRM CANCEL
+  // ------------------------------------------------
   const handleConfirmCancellation = async (e) => {
     e.preventDefault();
+
     if (!apptToCancel) return;
 
-    const cleanDocName = apptToCancel.doctorName
-      .toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
-      .trim();
-    const cleanInput = confirmInput
-      .toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
-      .trim();
+    const cleanDocName = apptToCancel.doctorName.toLowerCase().trim();
 
-    if (!cleanInput) {
-      setConfirmError("Please write one word from the doctor's name.");
+    const cleanInput = confirmInput.toLowerCase().trim();
+
+    if (!cleanDocName.includes(cleanInput)) {
+      setConfirmError("Doctor name does not match.");
+
       return;
     }
 
-    const docNameWords = cleanDocName.split(/\s+/);
-    const inputWords = cleanInput.split(/\s+/);
+    try {
+      const { data: session } = await authClient.token();
 
-    const isMatch =
-      cleanDocName.includes(cleanInput) || inputWords.some((word) => docNameWords.includes(word));
+      const token = session?.token;
 
-    if (isMatch) {
-      // Try deleting via backend if possible
-      const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, "") ||
-        "https://heal-zen-backend.vercel.app";
-
-      let deletedRemotely = false;
-      const candidateId = apptToCancel.raw?.id || apptToCancel.raw?._id || apptToCancel.bookingId;
-
-      if (candidateId) {
-        const deleteEndpoints = [
-          `${backendUrl}/appointments/${candidateId}`,
-          `${backendUrl}/bookings/${candidateId}`,
-        ];
-
-        for (const url of deleteEndpoints) {
-          try {
-            const res = await fetch(url, { method: "DELETE" });
-            if (res.ok) {
-              deletedRemotely = true;
-              break;
-            }
-          } catch (e) {
-            // ignore and try next
-          }
-        }
-      }
-
-      // Add to cancelledAppointments blacklist in localStorage
-      try {
-        const cancelled = JSON.parse(localStorage.getItem("cancelledAppointments") || "[]");
-        if (!cancelled.includes(apptToCancel.bookingId)) {
-          cancelled.push(apptToCancel.bookingId);
-          localStorage.setItem("cancelledAppointments", JSON.stringify(cancelled));
-        }
-      } catch (e) {
-        console.error("Failed to update cancelledAppointments blacklist:", e);
-      }
-
-      const updated = appointments.filter((appt) => appt.bookingId !== apptToCancel.bookingId);
-      // Persist locally regardless of remote outcome to keep UI in sync
-      localStorage.setItem("appointments", JSON.stringify(updated));
-      setAppointments(updated);
-      setIsCancelModalOpen(false);
-      setApptToCancel(null);
-    } else {
-      setConfirmError(`"${confirmInput}" does not match any word in "${apptToCancel.doctorName}".`);
+      await fetch(`${API_BASE}/appointments/${apptToCancel.raw?._id || apptToCancel.bookingId}`, {
+        method: "DELETE",
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Delete failed:", error);
     }
+
+    const updated = appointments.filter((appt) => appt.bookingId !== apptToCancel.bookingId);
+
+    setAppointments(updated);
+
+    localStorage.setItem("appointments", JSON.stringify(updated));
+
+    const cancelled = JSON.parse(localStorage.getItem("cancelledAppointments") || "[]");
+
+    cancelled.push(apptToCancel.bookingId);
+
+    localStorage.setItem("cancelledAppointments", JSON.stringify(cancelled));
+
+    setIsCancelModalOpen(false);
+
+    setApptToCancel(null);
   };
 
-  // ----------------------------------------------------
-  // ACTION HANDLER: Trigger toast notification
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // TOAST
+  // ------------------------------------------------
   const triggerToast = (msg) => {
     setToastMessage(msg);
+
     setShowToast(true);
+
     setTimeout(() => {
       setShowToast(false);
     }, 4000);
   };
 
-  // ----------------------------------------------------
-  // ACTION HANDLER: Open Edit Appointment Modal
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // EDIT APPOINTMENT
+  // ------------------------------------------------
   const handleEditAppointment = (appt) => {
     setApptToEdit(appt);
+
     setFormName(appt.patientName || "");
+
     setFormPhone(appt.patientPhone || "");
+
     setFormDate(appt.date || "");
+
     setFormTime(appt.timeSlot || "");
+
     setFormReason(appt.patientReason || "");
+
     setIsEditModalOpen(true);
   };
 
-  // ----------------------------------------------------
-  // ACTION HANDLER: Save Edited Appointment
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // SAVE APPOINTMENT
+  // ------------------------------------------------
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
+
     if (!apptToEdit) return;
 
-    const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, "") ||
-      "https://heal-zen-backend.vercel.app";
+    try {
+      const { data } = await authClient.getSession();
 
-    const candidateId = apptToEdit.raw?.id || apptToEdit.raw?._id || apptToEdit.bookingId;
+      const token = data?.token;
 
-    if (candidateId) {
-      const updateEndpoints = [
-        `${backendUrl}/appointments/${candidateId}`,
-        `${backendUrl}/bookings/${candidateId}`,
-      ];
-
-      for (const url of updateEndpoints) {
-        try {
-          const res = await fetch(url, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...apptToEdit.raw,
-              date: formDate,
-              timeSlot: formTime,
-              patientName: formName,
-              patientPhone: formPhone,
-              patientReason: formReason,
-            }),
-          });
-          if (res.ok) break;
-        } catch (err) {
-          // ignore and try next
-        }
-      }
+      await fetch(`${API_BASE}/confirmAppointments/${apptToEdit.raw?._id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: formDate,
+          timeSlot: formTime,
+          patientName: formName,
+          patientPhone: formPhone,
+          patientReason: formReason,
+        }),
+      });
+    } catch (error) {
+      console.error("Update failed:", error);
     }
 
     const updated = appointments.map((appt) => {
@@ -535,20 +493,24 @@ export default function Dashboard() {
           patientReason: formReason,
         };
       }
+
       return appt;
     });
 
     setAppointments(updated);
+
     localStorage.setItem("appointments", JSON.stringify(updated));
 
     setIsEditModalOpen(false);
+
     setApptToEdit(null);
+
     triggerToast("Appointment updated successfully!");
   };
 
-  // ----------------------------------------------------
-  // HELPER: Dynamic rendering of Preset Patient Avatars
-  // ----------------------------------------------------
+  // ------------------------------------------------
+  // RENDER AVATAR
+  // ------------------------------------------------
   const renderAvatar = (avatarId, sizeClass = "w-14 h-14") => {
     const isUrl =
       avatarId &&
@@ -571,61 +533,32 @@ export default function Dashboard() {
       );
     }
 
-    const presets = {
-      "avatar-1": {
-        bg: "bg-gradient-to-tr from-blue-600 to-indigo-400",
-        initial: "PT",
-      },
-      "avatar-2": {
-        bg: "bg-gradient-to-tr from-teal-600 to-emerald-400",
-        initial: "PH",
-      },
-      "avatar-3": {
-        bg: "bg-gradient-to-tr from-purple-600 to-pink-400",
-        initial: "PM",
-      },
-      "avatar-4": {
-        bg: "bg-gradient-to-tr from-amber-500 to-orange-400",
-        initial: "PC",
-      },
-    };
-
-    const selected = presets[avatarId] || presets["avatar-1"];
-
-    const updateAppointmentHandler = async () => {
-      const updateData = await fetch(`/api/confirmAppointments/${_id}`, {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json",
-          // authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(appointmentUpdateData),
-      });
-      const data = await updateData.json();
-    };
     return (
       <div
-        className={`${sizeClass} rounded-2xl ${selected.bg} flex items-center justify-center font-bold shadow-inner relative overflow-hidden text-white shrink-0 border border-white/10 transition-transform duration-300`}
+        className={`${sizeClass} rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-400 flex items-center justify-center font-bold text-white`}
       >
-        {/* Stylized vector patient headshot */}
-        <svg className="w-1/2 h-1/2 opacity-90 fill-current" viewBox="0 0 24 24">
-          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-        </svg>
-        <span className="absolute bottom-1 right-1 text-[7px] font-black tracking-widest uppercase bg-white/20 px-1 py-0.5 rounded text-white/90">
-          {selected.initial}
-        </span>
+        <User className="w-6 h-6" />
       </div>
     );
   };
 
-  // Split appointments into categories based on date/status and user email
-  const currentUserObj = user || initialUser || { email: "j.doe@healzen.net" };
+  // ------------------------------------------------
+  // FILTER UPCOMING
+  // ------------------------------------------------
   const upcomingAppts = appointments.filter(
-    (appt) =>
-      (appt.status === "Upcoming" || new Date(appt.date) >= new Date()) &&
-      (!appt.patientEmail ||
-        appt.patientEmail.toLowerCase() === currentUserObj.email?.toLowerCase()),
+    (appt) => appt.status === "Upcoming" || new Date(appt.date) >= new Date(),
   );
+
+  // ------------------------------------------------
+  // LOADING
+  // ------------------------------------------------
+  if (isPending || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900/40">
+        <div className="w-12 h-12 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-slate-50/50 dark:bg-slate-900/40 min-h-screen py-10 sm:py-16 transition-colors duration-300">
@@ -1228,7 +1161,6 @@ export default function Dashboard() {
                 </button>
                 <button
                   type="submit"
-                  onClick={updateAppointmentHandler}
                   className="grow py-3 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 active:scale-95 transition-all duration-200 cursor-pointer text-center"
                 >
                   Save Changes

@@ -2,37 +2,129 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Mail, Lock, ArrowRight, HeartPulse } from "lucide-react";
+import { Mail, Lock, HeartPulse } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { redirect, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [forgotMsg, setForgotMsg] = useState("");
 
+  // Validation States
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+
+  // Toast states
+  const [toastMessage, setToastMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
+
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 4000);
+  };
+
+  // Password Validation Rules
+  const validatePassword = (value) => {
+    const hasUppercase = /[A-Z]/.test(value);
+    const hasLowercase = /[a-z]/.test(value);
+    const hasMinLength = value.length >= 6;
+
+    if (!value.trim()) {
+      return "Password field is required.";
+    }
+
+    if (!hasUppercase) {
+      return "Password must contain at least 1 uppercase letter.";
+    }
+
+    if (!hasLowercase) {
+      return "Password must contain at least 1 lowercase letter.";
+    }
+
+    if (!hasMinLength) {
+      return "Password must be at least 6 characters long.";
+    }
+
+    return "";
+  };
+
+  // Email Validation
+  const validateEmail = (value) => {
+    if (!value.trim()) {
+      return "Email field is required.";
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(value)) {
+      return "Please enter a valid email address.";
+    }
+
+    return "";
+  };
+
   const handleMockSubmit = async (e) => {
     e.preventDefault();
+
+    setEmailError("");
+    setPasswordError("");
+    setSubmitError("");
+
+    // Empty Field Validation
+    const emailValidation = validateEmail(email);
+    const passwordValidation = validatePassword(password);
+
+    if (emailValidation || passwordValidation) {
+      setEmailError(emailValidation);
+      setPasswordError(passwordValidation);
+      return;
+    }
+
     const formData = new FormData(e.target);
     const loginData = Object.fromEntries(formData.entries());
+
     console.log(loginData);
 
-    const { data, error } = await authClient.signIn.email({
+    const loginParams = {
       email: loginData.email,
       password: loginData.password,
-      callbackURL: redirectTo,
-    });
+    };
+
+    if (redirectTo) {
+      loginParams.callbackURL = redirectTo;
+    }
+
+    const { data, error } = await authClient.signIn.email(loginParams);
+
     console.log(data, error);
-    if (data.user) {
+
+    if (error) {
+      setSubmitError(error.message || "Login failed. Please try again.");
+      triggerToast(error.message || "Login failed. Please try again.");
+    }
+
+    if (data?.user) {
+      triggerToast("Logged in successfully!");
+      const destination = redirectTo || "/dashboard";
+      router.push(destination);
     }
   };
+
   const socialHandler = async () => {
-    const data = await authClient.signIn.social({
-      provider: "google",
-      callbackURL: redirectTo,
-    });
+    const socialParams = { provider: "google" };
+
+    if (redirectTo) {
+      socialParams.callbackURL = redirectTo;
+    }
+
+    await authClient.signIn.social(socialParams);
   };
 
   return (
@@ -44,13 +136,16 @@ export default function LoginPage() {
             <div className="bg-brand-600 text-white p-2 rounded-xl group-hover:scale-105 transition-transform duration-300 shadow-md">
               <HeartPulse className="h-6 w-6 animate-pulse" />
             </div>
+
             <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white transition-colors duration-300">
               Heal<span className="text-brand-600 dark:text-brand-400">Zen</span>
             </span>
           </Link>
+
           <h1 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight">
             Login
           </h1>
+
           <p className="text-xs text-slate-655 dark:text-slate-300 font-semibold mt-2">
             Access your HealZen patient panel
           </p>
@@ -65,20 +160,36 @@ export default function LoginPage() {
               <label className="text-left text-[10px] font-extrabold text-slate-700 dark:text-slate-250 uppercase tracking-wider">
                 Email Address
               </label>
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                   <Mail className="w-4 h-4" />
                 </div>
+
                 <input
                   type="email"
                   name="email"
-                  defaultValue={""}
+                  value={email}
                   required
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+
+                    if (emailError) {
+                      setEmailError(validateEmail(e.target.value));
+                    }
+                  }}
                   placeholder="name@example.com"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-850 rounded-2xl text-xs font-semibold text-slate-850 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-500 transition-colors duration-300 shadow-sm"
+                  className={`w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-950/60 border rounded-2xl text-xs font-semibold text-slate-850 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-colors duration-300 shadow-sm ${
+                    emailError
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-200 dark:border-slate-850 focus:border-brand-500"
+                  }`}
                 />
               </div>
+
+              {emailError && (
+                <p className="text-[11px] font-bold text-red-500 px-1">{emailError}</p>
+              )}
             </div>
 
             {/* Password Field */}
@@ -87,6 +198,7 @@ export default function LoginPage() {
                 <label className="text-left text-[10px] font-extrabold text-slate-700 dark:text-slate-250 uppercase tracking-wider">
                   Password
                 </label>
+
                 <button
                   type="button"
                   className="text-[10px] font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors cursor-pointer"
@@ -94,21 +206,55 @@ export default function LoginPage() {
                   Forgot Password?
                 </button>
               </div>
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                   <Lock className="w-4 h-4" />
                 </div>
+
                 <input
                   type="password"
                   name="password"
-                  defaultValue={""}
+                  value={password}
                   required
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+
+                    if (passwordError) {
+                      setPasswordError(validatePassword(e.target.value));
+                    }
+                  }}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-850 rounded-2xl text-xs font-semibold text-slate-850 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-500 transition-colors duration-300 shadow-sm"
+                  className={`w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-950/60 border rounded-2xl text-xs font-semibold text-slate-850 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-colors duration-300 shadow-sm ${
+                    passwordError
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-200 dark:border-slate-850 focus:border-brand-500"
+                  }`}
                 />
               </div>
+
+              {passwordError && (
+                <div className="px-1 flex flex-col gap-1">
+                  <p className="text-[11px] font-bold text-red-500">{passwordError}</p>
+
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    Password must contain:
+                    <ul className="list-disc ml-4 mt-1">
+                      <li>1 Uppercase letter</li>
+                      <li>1 Lowercase letter</li>
+                      <li>Minimum 6 characters</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Login Error */}
+            {submitError && (
+              <div className="w-full rounded-2xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900/40 px-4 py-3">
+                <p className="text-[11px] font-bold text-red-500">{submitError}</p>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
@@ -122,9 +268,11 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="relative flex py-5 items-center">
             <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+
             <span className="flex-shrink mx-4 text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
               Or Sign In With
             </span>
+
             <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
           </div>
 
@@ -174,6 +322,13 @@ export default function LoginPage() {
             </p>
           </div>
         </div>
+        {/* TOAST NOTIFICATION */}
+        {showToast && (
+          <div className="fixed bottom-6 right-6 z-50 bg-teal-600 dark:bg-teal-500 text-white font-extrabold text-xs px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in border border-teal-500/10 backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+            <span>{toastMessage}</span>
+          </div>
+        )}
       </div>
     </div>
   );

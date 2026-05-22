@@ -4,18 +4,52 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { User, Mail, Lock, Link as LinkIcon, ArrowRight, HeartPulse } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // const router = useRouter();
+  // Toast states
+  const [toastMessage, setToastMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
+
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 4000);
+  };
+
+  const router = useRouter();
+
+  const validatePassword = (password) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
+
+    return passwordRegex.test(password);
+  };
 
   const handleMockSubmit = async (e) => {
     e.preventDefault();
+
+    setErrorMsg("");
+
+    // Empty field validation
+    if (!name || !email || !password) {
+      setErrorMsg("Please fill in all required fields.");
+      return;
+    }
+
+    // Password validation
+    if (!validatePassword(password)) {
+      setErrorMsg(
+        "Password must contain at least 1 uppercase letter, 1 lowercase letter, and be at least 6 characters long.",
+      );
+      return;
+    }
+
     const formData = new FormData(e.target);
     const registerData = Object.fromEntries(formData.entries());
 
@@ -25,11 +59,17 @@ export default function RegisterPage() {
       password: registerData.password,
     });
 
-    if (data.user) {
+    if (data?.user) {
       authClient.signOut();
-      // router.push("/login");
-      redirect("/login");
+      triggerToast("Registration successful. Please login.");
+      router.push("/login");
     }
+
+    if (error) {
+      setErrorMsg(error.message || "Registration failed.");
+      triggerToast(error.message || "Registration failed.");
+    }
+
     console.log(data, error);
     // Pure design/visual behavior - no backend/authentication logic
   };
@@ -53,9 +93,11 @@ export default function RegisterPage() {
               Heal<span className="text-brand-600 dark:text-brand-400">Zen</span>
             </span>
           </Link>
+
           <h1 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight">
             Register
           </h1>
+
           <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-2">
             Create your HealZen patient portal account
           </p>
@@ -70,10 +112,12 @@ export default function RegisterPage() {
               <label className="text-left text-[10px] font-extrabold text-slate-700 dark:text-slate-350 uppercase tracking-wider">
                 Full Name
               </label>
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                   <User className="w-4 h-4" />
                 </div>
+
                 <input
                   type="text"
                   required
@@ -91,10 +135,12 @@ export default function RegisterPage() {
               <label className="text-left text-[10px] font-extrabold text-slate-700 dark:text-slate-350 uppercase tracking-wider">
                 Email Address
               </label>
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                   <Mail className="w-4 h-4" />
                 </div>
+
                 <input
                   type="email"
                   name="email"
@@ -112,10 +158,12 @@ export default function RegisterPage() {
               <label className="text-left text-[10px] font-extrabold text-slate-700 dark:text-slate-350 uppercase tracking-wider">
                 Photo URL
               </label>
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                   <LinkIcon className="w-4 h-4" />
                 </div>
+
                 <input
                   type="url"
                   name="url"
@@ -132,10 +180,12 @@ export default function RegisterPage() {
               <label className="text-left text-[10px] font-extrabold text-slate-700 dark:text-slate-350 uppercase tracking-wider">
                 Password
               </label>
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                   <Lock className="w-4 h-4" />
                 </div>
+
                 <input
                   type="password"
                   required
@@ -146,7 +196,22 @@ export default function RegisterPage() {
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-500 transition-colors duration-300 shadow-sm"
                 />
               </div>
+
+              {/* Password Rules */}
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-5 pl-1">
+                Password must contain:
+                <br />• 1 Uppercase letter
+                <br />• 1 Lowercase letter
+                <br />• Minimum 6 characters
+              </div>
             </div>
+
+            {/* Error Message */}
+            {errorMsg && (
+              <div className="text-[11px] font-semibold text-red-500 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl px-3 py-2">
+                {errorMsg}
+              </div>
+            )}
 
             {/* Register Button */}
             <button
@@ -173,13 +238,15 @@ export default function RegisterPage() {
           {/* Divider */}
           <div className="relative flex py-5 items-center">
             <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+
             <span className="flex-shrink mx-4 text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
               Or Sign Up With
             </span>
+
             <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
           </div>
 
-          {/* Social Sign-Up (Google only, as requested) - At the bottom */}
+          {/* Social Sign-Up */}
           <button
             type="button"
             onClick={socialHandler}
@@ -211,6 +278,13 @@ export default function RegisterPage() {
             </svg>
             Sign up with Google
           </button>
+          {/* TOAST NOTIFICATION */}
+          {showToast && (
+            <div className="fixed bottom-6 right-6 z-50 bg-teal-600 dark:bg-teal-500 text-white font-extrabold text-xs px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in border border-teal-500/10 backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+              <span>{toastMessage}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

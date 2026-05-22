@@ -64,7 +64,7 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
   const [bookingId, setBookingId] = useState("");
   const [appointmentDetails, setAppointmentDetails] = useState(null);
   const [confirmationResponse, setConfirmationResponse] = useState(null);
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://heal-zen-backend.vercel.app";
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
   useEffect(() => {
     if (initialDoctor) return;
@@ -212,7 +212,7 @@ export default function DoctorDetailClient({ doctor: initialDoctor, id }) {
     }
 
     try {
-      const response = await fetch(`${NEXT_PUBLIC_BACKEND_URL}/confirmAppointments`, {
+      const response = await fetch(`${backendUrl}/confirmAppointments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
