@@ -29,6 +29,14 @@ const Navbar = () => {
   }); // Tracks active color theme ("light" or "dark")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Controls mobile dropdown state
   const [isMobileProfileActionsOpen, setIsMobileProfileActionsOpen] = useState(false);
+  const [isProfileImageLoaded, setIsProfileImageLoaded] = useState(false);
+
+  const profileInitial =
+    user?.name?.trim()?.[0]?.toUpperCase() || user?.email?.trim()?.[0]?.toUpperCase() || "U";
+
+  useEffect(() => {
+    setIsProfileImageLoaded(false);
+  }, [user?.image]);
 
   // ----------------------------------------------------
   // EFFECT 1: Runs once when component mounts in browser
@@ -130,19 +138,28 @@ const Navbar = () => {
                     type="button"
                     onClick={() => setIsProfileMenuOpen((prev) => !prev)}
                     aria-label="Open profile menu"
-                    className="h-9 w-9 overflow-hidden rounded-full bg-white dark:bg-white/10 flex items-center justify-center text-sm font-bold text-brand-600 dark:text-white focus:outline-none"
+                    className="relative h-9 w-9 overflow-hidden rounded-full bg-white dark:bg-white/10 flex items-center justify-center text-sm font-bold text-brand-600 dark:text-white focus:outline-none"
                   >
-                    {user?.image ? (
+                    <span
+                      className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+                        isProfileImageLoaded ? "opacity-0" : "opacity-100"
+                      }`}
+                    >
+                      {profileInitial}
+                    </span>
+                    {user?.image && (
                       <Image
                         src={user.image}
                         alt={user?.name ?? "Profile"}
                         width={40}
                         height={40}
                         unoptimized
-                        className="h-full w-full object-cover"
+                        onLoadingComplete={() => setIsProfileImageLoaded(true)}
+                        onError={() => setIsProfileImageLoaded(false)}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          isProfileImageLoaded ? "opacity-100" : "opacity-0"
+                        }`}
                       />
-                    ) : (
-                      <span>{(user?.name || user?.email || "U")[0]?.toUpperCase()}</span>
                     )}
                   </button>
                 </div>
@@ -253,19 +270,28 @@ const Navbar = () => {
                     type="button"
                     onClick={() => setIsMobileProfileActionsOpen((s) => !s)}
                     aria-label="Toggle mobile profile actions"
-                    className="h-12 w-12 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+                    className="relative h-12 w-12 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
                   >
-                    {user?.image ? (
+                    <span
+                      className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+                        isProfileImageLoaded ? "opacity-0" : "opacity-100"
+                      }`}
+                    >
+                      {profileInitial}
+                    </span>
+                    {user?.image && (
                       <Image
                         src={user.image}
                         alt={user?.name ?? "Profile"}
                         width={48}
                         height={48}
                         unoptimized
-                        className="h-full w-full object-cover"
+                        onLoadingComplete={() => setIsProfileImageLoaded(true)}
+                        onError={() => setIsProfileImageLoaded(false)}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          isProfileImageLoaded ? "opacity-100" : "opacity-0"
+                        }`}
                       />
-                    ) : (
-                      <span>{(user?.name || user?.email || "U")[0]?.toUpperCase()}</span>
                     )}
                   </button>
                 </div>

@@ -17,6 +17,59 @@ import {
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
+const getUserInitial = (name, email) => {
+  const char = name?.trim()?.[0] || email?.trim()?.[0] || "U";
+  return String(char).toUpperCase();
+};
+
+function AvatarLoader({ src, fallbackInitial, sizeClass = "w-14 h-14" }) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const isUrl =
+    src &&
+    (src.startsWith("http://") ||
+      src.startsWith("https://") ||
+      src.startsWith("/") ||
+      src.includes(".png") ||
+      src.includes(".jpg") ||
+      src.includes(".jpeg") ||
+      src.includes(".svg") ||
+      src.includes("data:image"));
+
+  if (!isUrl || hasError) {
+    return (
+      <div
+        className={`${sizeClass} rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner relative shrink-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-100 font-bold uppercase`}
+      >
+        {fallbackInitial}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`${sizeClass} rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner relative shrink-0`}
+    >
+      <div
+        className={`absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-950 text-xl font-bold uppercase text-slate-700 dark:text-slate-100 transition-opacity duration-300 ${
+          isLoaded ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        {fallbackInitial}
+      </div>
+      <Image
+        src={src}
+        alt="Patient Profile Picture"
+        fill
+        onLoadingComplete={() => setIsLoaded(true)}
+        onError={() => setHasError(true)}
+        className="object-cover object-center transition-opacity duration-300"
+        unoptimized
+      />
+    </div>
+  );
+}
+
 /**
  * PATIENT PORTAL DASHBOARD PAGE
  * Renders a complete interactive client panel for appointment tracking and biographical cards.
@@ -510,25 +563,11 @@ export default function Dashboard() {
 
     if (isUrl) {
       return (
-        <div
-          className={`${sizeClass} rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner relative shrink-0 transition-transform duration-300`}
-        >
-          <Image
-            src={avatarId}
-            alt="Patient Profile Picture"
-            fill
-            onError={(e) => {
-              const target = e.target;
-              if (target && "src" in target) {
-                target.onerror = null;
-                target.src =
-                  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=250&auto=format&fit=crop";
-              }
-            }}
-            className="object-cover object-center animate-fade-in"
-            unoptimized
-          />
-        </div>
+        <AvatarLoader
+          src={avatarId}
+          fallbackInitial={getUserInitial(user?.name, user?.email)}
+          sizeClass={sizeClass}
+        />
       );
     }
 

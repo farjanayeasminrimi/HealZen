@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Mail, Lock, ArrowRight, HeartPulse } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { redirect } from "next/navigation";
+import { redirect, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [forgotMsg, setForgotMsg] = useState("");
@@ -20,15 +22,16 @@ export default function LoginPage() {
     const { data, error } = await authClient.signIn.email({
       email: loginData.email,
       password: loginData.password,
+      callbackURL: redirectTo,
     });
     console.log(data, error);
     if (data.user) {
-      redirect("/");
     }
   };
   const socialHandler = async () => {
     const data = await authClient.signIn.social({
       provider: "google",
+      callbackURL: redirectTo,
     });
   };
 
